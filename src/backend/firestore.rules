@@ -1,0 +1,173 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function staff() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function validName(name, maximumLength) {
+      return name is string
+        && name.size() >= 2
+        && name.size() <= maximumLength
+        && name.matches("^[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+( [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*$");
+    }
+
+    function validText(value, minimumLength, maximumLength) {
+      return value is string
+        && value.size() >= minimumLength
+        && value.size() <= maximumLength
+        && !value.matches('^\\s*$');
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'name', 'email', 'phone', 'studentId', 'createdAt', 'updatedAt'
+        ])
+        && validName(request.resource.data.name, 20)
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 3
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.studentId is string
+        && (request.resource.data.studentId == ''
+          || request.resource.data.studentId.matches('^[0-9]{9}$'))
+        && (request.resource.data.phone == ''
+          || request.resource.data.phone.matches('^\\+?[0-9]{8,15}$'));
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'phone', 'studentId', 'updatedAt'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name'])
+          || validName(request.resource.data.name, 20))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId'])
+          || request.resource.data.studentId.matches('^[0-9]{9}$'))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone'])
+          || request.resource.data.phone.matches('^\\+?[0-9]{8,15}$'));
+      allow delete: if false;
+    }
+
+    match /serviceRequests/{requestId} {
+      allow read: if staff()
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'studentName', 'studentId', 'email', 'phone',
+          'serviceId', 'service', 'description', 'date', 'status',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && validName(request.resource.data.studentName, 20)
+        && request.resource.data.studentId is string
+        && request.resource.data.studentId.matches('^[0-9]{9}$')
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.phone is string
+        && request.resource.data.phone.matches('^\\+?[0-9]{8,15}$')
+        && validText(request.resource.data.serviceId, 1, 40)
+        && validText(request.resource.data['service'], 1, 100)
+        && validText(request.resource.data.description, 10, 1500)
+        && request.resource.data.status == 'Pending'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if staff()
+        && request.resource.data.status in [
+          'Pending', 'Accepted', 'In Progress', 'Completed', 'Rejected', 'Cancelled'
+        ]
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt'])
+        || (signedIn()
+          && resource.data.ownerUid == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.status == 'Cancelled'
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'updatedAt']));
+
+      allow delete: if staff();
+    }
+
+    match /publicInquiries/{inquiryId} {
+      allow create: if request.resource.data.keys().hasOnly([
+          'name', 'email', 'phone', 'serviceId', 'service', 'message',
+          'status', 'createdAt'
+        ])
+        && validName(request.resource.data.name, 20)
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 3
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.phone is string
+        && request.resource.data.phone.matches('^\\+?[0-9]{8,15}$')
+        && validText(request.resource.data.serviceId, 1, 40)
+        && validText(request.resource.data['service'], 1, 100)
+        && validText(request.resource.data.message, 10, 1500)
+        && request.resource.data.status == 'New'
+        && request.resource.data.createdAt == request.time;
+
+      allow read, delete: if staff();
+      allow update: if staff()
+        && request.resource.data.status in ['New', 'In Progress', 'Resolved']
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt']);
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create: if staff()
+        && request.resource.data.keys().hasOnly([
+          'name', 'description', 'department', 'processingTime', 'fee',
+          'studentOnly', 'active', 'createdAt', 'updatedAt'
+        ])
+        && validText(request.resource.data.name, 1, 100)
+        && validText(request.resource.data.description, 10, 500)
+        && validText(request.resource.data.department, 1, 100)
+        && validText(request.resource.data.processingTime, 1, 60)
+        && validText(request.resource.data.fee, 1, 40)
+        && request.resource.data.studentOnly is bool
+        && request.resource.data.active == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if staff()
+        && request.resource.data.keys().hasOnly([
+          'name', 'description', 'department', 'processingTime', 'fee',
+          'studentOnly', 'active', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'description', 'department', 'processingTime', 'fee',
+          'studentOnly', 'active', 'updatedAt'
+        ])
+        && validText(request.resource.data.name, 1, 100)
+        && validText(request.resource.data.description, 10, 500)
+        && validText(request.resource.data.department, 1, 100)
+        && validText(request.resource.data.processingTime, 1, 60)
+        && validText(request.resource.data.fee, 1, 40)
+        && request.resource.data.studentOnly is bool
+        && request.resource.data.active is bool
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if staff();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create, delete: if false;
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && resource.data.read == false
+        && request.resource.data.read == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+  }
+}
