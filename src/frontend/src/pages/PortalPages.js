@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import Icon from '../components/Icon';
 import ValidationErrors, { FieldValidationError } from '../components/ValidationErrors';
+import universityLogo from '../logo.png';
 import { handleFormInput, validateForm } from '../models/formValidation';
 import {
   deleteInquiry,
   setInquiryStatus,
   subscribeToAllStudentRequests,
   subscribeToPublicInquiries,
+  subscribeToStudentRecords,
   subscribeToStudentRequests,
 } from '../models/portalRepository';
 import { services as defaultServices } from '../models/services';
@@ -24,6 +26,41 @@ function PageHeading({ eyebrow, title, description, action }) {
   );
 }
 
+async function downloadRequestPdf(request) {
+  const { jsPDF } = await import('jspdf');
+  const pdf = new jsPDF();
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(10, 34, 72);
+  pdf.setFontSize(18);
+  pdf.text('LIMKOKWING UNIVERSITY', 18, 22);
+  pdf.setFontSize(11);
+  pdf.text('Student Service Request', 18, 31);
+  pdf.setDrawColor(0, 94, 210);
+  pdf.line(18, 36, 192, 36);
+  pdf.setTextColor(25, 35, 54);
+  pdf.setFontSize(10);
+  const details = [
+    `Reference: ${request.id}`,
+    `Student: ${request.studentName || ''}`,
+    `Student number: ${request.studentId || ''}`,
+    `Email: ${request.email || ''}`,
+    `Service: ${request.service || ''}`,
+    `Date: ${request.date || ''}`,
+    `Status: ${request.status || 'Pending'}`,
+    `Fee: ${request.fee || 'No fee'} (${request.feeStatus || 'No fee'})`,
+  ];
+  let y = 48;
+  details.forEach((detail) => {
+    pdf.text(detail, 18, y);
+    y += 8;
+  });
+  pdf.setFontSize(12);
+  pdf.text('Request details', 18, y + 4);
+  pdf.setFontSize(10);
+  pdf.text(pdf.splitTextToSize(request.description || '', 174), 18, y + 12);
+  pdf.save(`service-request-${request.id.slice(0, 10)}.pdf`);
+}
+
 function ServiceCard({ service, navigate }) {
   return (
     <article className="service-card">
@@ -35,37 +72,30 @@ function ServiceCard({ service, navigate }) {
         <span>{service.fee}</span>
       </div>
       <button className="service-link" onClick={() => navigate(`/services/${service.id}`)}>
-        Explore service <span aria-hidden="true">→</span>
+        Explore service
       </button>
     </article>
   );
 }
 
 function HomePage({ navigate, user, services, serviceError, onStudentAccess }) {
-  const availableServices = services.filter((service) => user || !service.studentOnly);
+  const availableServices = services;
 
   return (
     <>
       <section className="hero">
         <div className="hero-content">
+          <img className="hero-mobile-logo" src={universityLogo} alt="Limkokwing University" />
           <span className="eyebrow hero-eyebrow"><span className="live-dot" /> MASERU CAMPUS · STUDENT SERVICES</span>
-          <h1>Your university<br />services, <em>simplified.</em></h1>
-          <p>From transcripts to technical support, find the help you need and follow every request in one place.</p>
+          <h1><span className="hero-title-desktop">Your One-Stop Student Services Portal</span><span className="hero-title-mobile">Welcome, {user?.displayName?.split(' ')[0] || 'Student'} 👋</span></h1>
+          <p>Request, track, and manage your university services quickly and easily.</p>
           <div className="hero-actions">
-            <button className="button button-primary" onClick={() => navigate('/services')}>Explore our services <span aria-hidden="true">→</span></button>
+            <button className="button button-primary" onClick={() => navigate('/services')}>Explore our services</button>
             <button className="button button-light" onClick={onStudentAccess}>{user ? 'Student portal' : 'Student sign in'}</button>
           </div>
-          <div className="hero-note"><Icon name="shield" size={16} /> Secure access for students. Public enquiries welcome.</div>
         </div>
         <div className="hero-photo" aria-hidden="true" />
         <div className="hero-caption"><span className="caption-line" /> Creativity meets opportunity</div>
-      </section>
-
-      <section className="trust-strip" aria-label="Portal highlights">
-        <div><strong>{availableServices.length}</strong><span>services available</span></div>
-        <div><strong>24/7</strong><span>online access</span></div>
-        <div><strong>1 place</strong><span>for updates and support</span></div>
-        <span className="trust-note">Serving our Maseru campus community</span>
       </section>
 
       <section className="section-block">
@@ -86,11 +116,11 @@ function HomePage({ navigate, user, services, serviceError, onStudentAccess }) {
       <section className="section-block services-preview">
         {serviceError && <p className="form-alert form-alert-error" role="alert">{serviceError}</p>}
         <div className="section-heading">
-          <div><span className="eyebrow">A BETTER WAY TO GET HELP</span><h2>How can we help?</h2></div>
-          <button className="text-button view-all-link" onClick={() => navigate('/services')}>View all services <span aria-hidden="true">→</span></button>
+          <div><h2>Our Services</h2></div>
+          <button className="text-button view-all-link" onClick={() => navigate('/services')}>View all</button>
         </div>
         <div className="service-grid">
-          {availableServices.slice(0, 3).map((service) => <ServiceCard key={service.id} service={service} navigate={navigate} />)}
+          {availableServices.slice(0, 6).map((service) => <ServiceCard key={service.id} service={service} navigate={navigate} />)}
         </div>
       </section>
 
@@ -105,13 +135,13 @@ function HomePage({ navigate, user, services, serviceError, onStudentAccess }) {
               <span className="pathway-icon"><Icon name="university" size={22} /></span>
               <h3>Our courses</h3>
               <p>Browse the courses and faculties available at Limkokwing University, Lesotho.</p>
-              <button className="text-button" onClick={() => navigate('/courses')}>View our courses <span aria-hidden="true">→</span></button>
+              <button className="text-button" onClick={() => navigate('/courses')}>View our courses</button>
             </article>
             <article className="pathway-card">
               <span className="pathway-icon"><Icon name="document" size={22} /></span>
               <h3>Tuition and fees</h3>
               <p>Request the current official fee schedule and confirm payment details with the university.</p>
-              <button className="text-button" onClick={() => navigate('/fees')}>View fees <span aria-hidden="true">→</span></button>
+              <button className="text-button" onClick={() => navigate('/fees')}>View fees</button>
             </article>
           </div>
         </section>
@@ -121,7 +151,7 @@ function HomePage({ navigate, user, services, serviceError, onStudentAccess }) {
         <section className="student-callout">
           <div className="callout-icon"><Icon name="shield" size={25} /></div>
           <div><span className="eyebrow">FOR REGISTERED STUDENTS</span><h2>Your requests, all in one place.</h2><p>Sign in to submit academic service requests, manage your profile, and track progress securely.</p></div>
-          <button className="button button-primary" onClick={onStudentAccess}>Open student portal <span aria-hidden="true">→</span></button>
+          <button className="button button-primary" onClick={onStudentAccess}>Open student portal</button>
         </section>
       )}
     </>
@@ -158,7 +188,7 @@ function ServicesPage({ navigate, user, services, serviceError }) {
       ) : (
         <div className="empty-state"><h2>No matching services</h2><p>Try a different search term, or contact the registry for help.</p><button className="button button-outline" onClick={() => setQuery('')}>Clear search</button></div>
       )}
-      {!user && <aside className="public-note"><Icon name="message" size={20} /><p><strong>Registered student?</strong> Sign in to view academic services and follow your requests online.</p><button className="text-button" onClick={() => navigate('/student')}>Student sign in <span aria-hidden="true">→</span></button></aside>}
+      {!user && <aside className="public-note"><Icon name="message" size={20} /><p><strong>Registered student?</strong> Sign in to view academic services and follow your requests online.</p><button className="text-button" onClick={() => navigate('/student')}>Student sign in</button></aside>}
     </section>
   );
 }
@@ -206,7 +236,7 @@ function CoursesPage({ courses = [], navigate }) {
       <aside className="public-note">
         <Icon name="message" size={20} />
         <p><strong>Need help choosing?</strong> Ask the university team about course availability, entry requirements, and application dates.</p>
-        <button className="text-button" onClick={() => navigate('/contact')}>Contact us <span aria-hidden="true">→</span></button>
+        <button className="text-button" onClick={() => navigate('/contact')}>Contact us</button>
       </aside>
     </section>
   );
@@ -239,7 +269,7 @@ function FeesPage({ navigate, services = defaultServices }) {
         )}
         <p>Contact the university team to request the current fee schedule and confirm payment instructions. Always verify payment details directly with the university.</p>
         <div className="detail-actions">
-          <button className="button button-primary" onClick={() => navigate('/contact')}>Ask about fees <span aria-hidden="true">→</span></button>
+          <button className="button button-primary" onClick={() => navigate('/contact')}>Ask about fees</button>
           <button className="button button-outline" onClick={() => navigate('/courses')}>Browse courses</button>
         </div>
       </article>
@@ -270,7 +300,7 @@ function ServiceDetailsPage({ service, navigate, onRequest }) {
           </ul>
         </div>
         <div className="detail-actions">
-          <button className="button button-primary" onClick={onRequest}>{service.studentOnly ? 'Start student request' : 'Make an enquiry'} <span aria-hidden="true">→</span></button>
+          <button className="button button-primary" onClick={onRequest}>{service.studentOnly ? 'Start student request' : 'Make an enquiry'}</button>
           <button className="button button-outline" onClick={() => navigate('/services')}>Back to services</button>
         </div>
       </article>
@@ -316,6 +346,8 @@ function RequestPage({ service, user, profile, onStudentSubmit, onPublicSubmit, 
           service: service.name,
           description: submission.description,
           date: submittedDate,
+          fee: service.fee,
+          feeAmount: Number(service.fee.match(/[0-9]+(?:\\.[0-9]+)?/)?.[0] || 0),
         });
       } else {
         reference = await onPublicSubmit({
@@ -356,7 +388,7 @@ function RequestPage({ service, user, profile, onStudentSubmit, onPublicSubmit, 
           {user ? (
             <>
               <div className="form-field"><label htmlFor="request-student-name">Full name</label><input id="request-student-name" name="studentName" defaultValue={profile?.name || user.displayName || ''} autoComplete="name" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="request-student-name" errors={validationErrors} /></div>
-              <div className="form-field"><label htmlFor="request-student-id">Student number</label><input id="request-student-id" name="studentId" defaultValue={profile?.studentId || ''} inputMode="numeric" pattern="[0-9]{9}" data-validation-type="studentId" data-validation-message="Student number must contain exactly 9 digits, for example 901019217." placeholder="e.g. 901019217" required maxLength="9" /><FieldValidationError fieldId="request-student-id" errors={validationErrors} /></div>
+              <div className="form-field"><label htmlFor="request-student-id">Student number</label><input id="request-student-id" name="studentId" defaultValue={profile?.studentId || ''} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90, for example 901019217." placeholder="e.g. 901019217" required maxLength="9" /><FieldValidationError fieldId="request-student-id" errors={validationErrors} /></div>
               <div className="form-field"><label htmlFor="request-email">University email</label><input id="request-email" type="email" name="email" autoComplete="email" defaultValue={user.email || ''} readOnly={Boolean(user.email)} required maxLength="254" /><FieldValidationError fieldId="request-email" errors={validationErrors} /></div>
               <div className="form-field"><label htmlFor="request-phone">Mobile number</label><input id="request-phone" name="phone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." autoComplete="tel" defaultValue={profile?.phone || user.phoneNumber || ''} required maxLength="16" /><FieldValidationError fieldId="request-phone" errors={validationErrors} /></div>
             </>
@@ -372,7 +404,7 @@ function RequestPage({ service, user, profile, onStudentSubmit, onPublicSubmit, 
           <ValidationErrors errors={validationErrors} />
           {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
           {success && <p className="form-alert form-alert-success" role="status">{success}{user && <> <button type="button" className="text-button" onClick={() => navigate('/student')}>View my requests</button></>}</p>}
-          <button className="button button-primary form-submit" disabled={busy} type="submit">{busy ? 'Submitting…' : user ? 'Submit request' : 'Send enquiry'} <span aria-hidden="true">→</span></button>
+          <button className="button button-primary form-submit" disabled={busy} type="submit">{busy ? 'Submitting…' : user ? 'Submit request' : 'Send enquiry'}</button>
           <p className="privacy-note"><Icon name="shield" size={15} /> Your information is shared only with the team responsible for this service.</p>
         </form>
         <aside className="request-aside">
@@ -397,7 +429,13 @@ function StatusBadge({ status }) {
   return <span className={`status-pill status-${status?.toLowerCase().replace(/\s+/g, '-') || 'pending'}`}>{status || 'Pending'}</span>;
 }
 
-function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancelRequest, navigate }) {
+function getRequestFeeAmount(request) {
+  if (Number.isFinite(request.feeAmount)) return request.feeAmount;
+  const fee = request.fee || defaultServices.find((service) => service.id === request.serviceId)?.fee || '';
+  return Number(fee.match(/[0-9]+(?:\.[0-9]+)?/)?.[0] || 0);
+}
+
+function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
   const [requests, setRequests] = useState([]);
   const [requestError, setRequestError] = useState('');
   const [filter, setFilter] = useState('All requests');
@@ -406,6 +444,9 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
   const [profileValidationErrors, setProfileValidationErrors] = useState([]);
   const [savingProfile, setSavingProfile] = useState(false);
   const [cancellingId, setCancellingId] = useState('');
+  const [editingId, setEditingId] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [savingRequestId, setSavingRequestId] = useState('');
 
   useEffect(() => {
     if (!user) return undefined;
@@ -457,8 +498,41 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
     }
   };
 
+  const handleSaveRequest = async (event, requestId) => {
+    event.preventDefault();
+    if (editDescription.trim().length < 10) {
+      setRequestError('Request details must be at least 10 characters.');
+      return;
+    }
+    setSavingRequestId(requestId);
+    setRequestError('');
+    try {
+      await onUpdateRequest(requestId, editDescription);
+      setEditingId('');
+    } catch (error) {
+      setRequestError(error.message || 'The request could not be updated.');
+    } finally {
+      setSavingRequestId('');
+    }
+  };
+
+  const handleDelete = async (requestId) => {
+    if (!window.confirm('Delete this pending request? This cannot be undone.')) return;
+    setSavingRequestId(requestId);
+    setRequestError('');
+    try {
+      await onDeleteRequest(requestId);
+    } catch (error) {
+      setRequestError(error.message || 'The request could not be deleted.');
+    } finally {
+      setSavingRequestId('');
+    }
+  };
+
   const completedCount = requests.filter((request) => request.status === 'Completed').length;
   const openCount = requests.filter((request) => ['Pending', 'Accepted', 'In Progress'].includes(request.status)).length;
+  const unpaidRequests = requests.filter((request) => getRequestFeeAmount(request) > 0 && request.feeStatus !== 'Paid');
+  const outstandingTotal = unpaidRequests.reduce((total, request) => total + getRequestFeeAmount(request), 0);
 
   return (
     <section className="content-wrap dashboard-wrap">
@@ -466,7 +540,7 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
         eyebrow="YOUR STUDENT PORTAL"
         title={`Good to see you${profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.`}
         description="Manage your student information and keep an eye on your service requests."
-        action={<button className="button button-primary" onClick={() => navigate('/services')}>New request <span aria-hidden="true">→</span></button>}
+        action={<button className="button button-primary" onClick={() => navigate('/services')}>New request</button>}
       />
       {(profileError || requestError) && <p className="form-alert form-alert-error" role="alert">{profileError || requestError}</p>}
 
@@ -475,7 +549,7 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
           <div><span className="eyebrow">ONE LAST STEP</span><h2>Complete your student profile</h2><p>Add your student ID so we can link requests to your university record.</p></div>
           <div className="profile-fields">
             <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" defaultValue={profile?.name || user.displayName || ''} required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="profile-name" errors={profileValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" defaultValue={profile?.studentId || ''} inputMode="numeric" pattern="[0-9]{9}" data-validation-type="studentId" data-validation-message="Student number must contain exactly 9 digits, for example 901019217." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="profile-student-id" errors={profileValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" defaultValue={profile?.studentId || ''} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90, for example 901019217." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="profile-student-id" errors={profileValidationErrors} /></div>
             <div className="form-field"><label htmlFor="profile-phone">Mobile number</label><input id="profile-phone" name="profilePhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." defaultValue={profile?.phone || user.phoneNumber || ''} required maxLength="16" /><FieldValidationError fieldId="profile-phone" errors={profileValidationErrors} /></div>
           </div>
           <ValidationErrors errors={profileValidationErrors} />
@@ -488,7 +562,13 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
         <div><span>Total requests</span><strong>{requests.length}</strong><Icon name="document" size={19} /></div>
         <div><span>In progress</span><strong>{openCount}</strong><Icon name="calendar" size={19} /></div>
         <div><span>Completed</span><strong>{completedCount}</strong><Icon name="shield" size={19} /></div>
+        <div className="debt-stat"><span>Fees owed</span><strong>M{outstandingTotal.toFixed(2)}</strong><Icon name="document" size={19} /></div>
       </div>
+
+      {unpaidRequests.length > 0 && <section className="outstanding-fees" aria-labelledby="fees-owed-title">
+        <div className="dashboard-section-heading"><div><span className="eyebrow">STUDENT ACCOUNT</span><h2 id="fees-owed-title">Outstanding service fees</h2></div><strong>M{outstandingTotal.toFixed(2)}</strong></div>
+        <div className="fee-list">{unpaidRequests.map((request) => <div className="fee-row" key={request.id}><span>{request.service}</span><strong>M{getRequestFeeAmount(request).toFixed(2)}</strong><span className="fee-unpaid">Unpaid</span></div>)}</div>
+      </section>}
 
       <div className="dashboard-section-heading">
         <div><span className="eyebrow">REQUEST HISTORY</span><h2>Your service requests</h2></div>
@@ -506,10 +586,23 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
               <div className="request-item-main">
                 <span className="request-reference">REFERENCE · {request.id.slice(0, 10).toUpperCase()}</span>
                 <h3>{request.service}</h3>
-                <p>{request.description}</p>
+                {editingId === request.id ? (
+                  <form className="request-edit-form" onSubmit={(event) => handleSaveRequest(event, request.id)}>
+                    <label className="visually-hidden" htmlFor={`edit-request-${request.id}`}>Edit request details</label>
+                    <textarea id={`edit-request-${request.id}`} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} minLength="10" maxLength="1500" required />
+                    <button className="button button-primary" type="submit" disabled={savingRequestId === request.id}>{savingRequestId === request.id ? 'Saving…' : 'Save changes'}</button>
+                    <button className="button button-outline" type="button" onClick={() => setEditingId('')}>Cancel edit</button>
+                  </form>
+                ) : <p>{request.description}</p>}
                 <span className="request-date">Submitted {request.date || 'recently'}</span>
+                {getRequestFeeAmount(request) > 0 && <span className="request-fee">Fee: M{getRequestFeeAmount(request).toFixed(2)} · {request.feeStatus || 'Unpaid'}</span>}
+                <button className="text-button request-pdf-link" type="button" onClick={() => downloadRequestPdf(request)}>Download request PDF</button>
               </div>
-              <div className="request-item-status"><StatusBadge status={request.status} />{request.status === 'Pending' && <button className="text-button cancel-button" disabled={cancellingId === request.id} onClick={() => handleCancel(request.id)}>{cancellingId === request.id ? 'Cancelling…' : 'Cancel request'}</button>}</div>
+              <div className="request-item-status"><StatusBadge status={request.status} />{request.status === 'Pending' && <>
+                {editingId !== request.id && <button className="text-button" type="button" onClick={() => { setEditingId(request.id); setEditDescription(request.description); }}>Edit request</button>}
+                <button className="text-button delete-link" type="button" disabled={savingRequestId === request.id} onClick={() => handleDelete(request.id)}>Delete request</button>
+                <button className="text-button cancel-button" type="button" disabled={cancellingId === request.id} onClick={() => handleCancel(request.id)}>{cancellingId === request.id ? 'Cancelling…' : 'Cancel request'}</button>
+              </>}</div>
             </article>
           ))}
         </div>
@@ -596,11 +689,14 @@ function AdminDashboard({
   onCreateService,
   onUpdateStatus,
   onDeleteRequest,
-  onCreateStaffAccount,
+  onCreateStudent,
+  onGrantAdminAccess,
+  onSetFeeStatus,
   initialSection = 'requests',
 }) {
   const [requests, setRequests] = useState([]);
   const [inquiries, setInquiries] = useState([]);
+  const [students, setStudents] = useState([]);
   const [error, setError] = useState('');
   const [section, setSection] = useState(initialSection);
   const [query, setQuery] = useState('');
@@ -630,9 +726,11 @@ function AdminDashboard({
       inquiryReady = true;
       if (requestReady) setError('');
     }, onError);
+    const studentSubscription = subscribeToStudentRecords((items) => setStudents(items), onError);
     return () => {
       requestSubscription();
       inquirySubscription();
+      studentSubscription();
     };
   }, []);
 
@@ -698,7 +796,7 @@ function AdminDashboard({
     }
   };
 
-  const handleCreateStaffAccount = async (event) => {
+  const handleCreateStudent = async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     const errors = validateForm(form);
@@ -709,17 +807,50 @@ function AdminDashboard({
     setStaffError('');
     setStaffMessage('');
     try {
-      const account = await onCreateStaffAccount({
-        name: values.get('staffName'),
-        email: values.get('staffEmail'),
-        password: values.get('staffPassword'),
+      await onCreateStudent({
+        name: values.get('studentName'),
+        email: values.get('studentEmail'),
+        studentId: values.get('studentId'),
       });
       form.reset();
-      setStaffMessage(`Staff account created for ${account.email}. They can now sign in using their email and temporary password.`);
+      setStaffMessage('Student added to the database. They can now sign in with Google using this email address.');
     } catch (failure) {
-      setStaffError(failure.message || 'The staff account could not be created.');
+      setStaffError(failure.message || 'The student could not be added.');
     } finally {
       setStaffBusy(false);
+    }
+  };
+
+  const handleGrantAdmin = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const errors = validateForm(form);
+    setStaffValidationErrors(errors);
+    if (errors.length) return;
+    const email = new FormData(form).get('adminEmail');
+    setStaffBusy(true);
+    setStaffError('');
+    setStaffMessage('');
+    try {
+      await onGrantAdminAccess(email);
+      form.reset();
+      setStaffMessage(`Admin access granted to ${email}. They need to sign in again to refresh their access.`);
+    } catch (failure) {
+      setStaffError(failure.message || 'Admin access could not be granted.');
+    } finally {
+      setStaffBusy(false);
+    }
+  };
+
+  const updateFeeStatus = async (requestId, feeStatus) => {
+    setBusyId(requestId);
+    setError('');
+    try {
+      await onSetFeeStatus(requestId, feeStatus);
+    } catch (failure) {
+      setError(failure.message || 'The fee status could not be updated.');
+    } finally {
+      setBusyId('');
     }
   };
 
@@ -731,7 +862,7 @@ function AdminDashboard({
           <button role="tab" aria-selected={section === 'requests'} className={section === 'requests' ? 'active' : ''} onClick={() => setSection('requests')}>Student requests <span>{requests.length}</span></button>
           <button role="tab" aria-selected={section === 'inquiries'} className={section === 'inquiries' ? 'active' : ''} onClick={() => setSection('inquiries')}>Public enquiries <span>{inquiries.length}</span></button>
           <button role="tab" aria-selected={section === 'services'} className={section === 'services' ? 'active' : ''} onClick={() => setSection('services')}>Services <span>{services.length}</span></button>
-          <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => setSection('staff')}>Staff accounts</button>
+          <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => setSection('staff')}>Access & accounts</button>
         </div>
         {['requests', 'inquiries'].includes(section) && <>
           <label className="visually-hidden" htmlFor="staff-search">Search student and public records</label>
@@ -744,7 +875,20 @@ function AdminDashboard({
           <article className="staff-record" key={request.id}>
             <div className="staff-record-header"><div><h3>{request.service}</h3><span>{request.studentName} · {request.studentId}</span></div><StatusBadge status={request.status} /></div>
             <p>{request.description}</p>
-            <div className="staff-record-footer"><span>{request.email} · {request.date}</span><div>{request.status === 'Pending' && <button className="button button-primary staff-accept" disabled={busyId === request.id} onClick={() => updateStatus(request.id, 'Accepted')}>{busyId === request.id ? 'Updating…' : 'Accept request'}</button>}<label className="visually-hidden" htmlFor={`status-${request.id}`}>Update status for {request.studentName}</label><select id={`status-${request.id}`} disabled={busyId === request.id} className="select-control" value={request.status} onChange={(event) => updateStatus(request.id, event.target.value)}>{REQUEST_STATUSES.filter((status) => status !== 'Cancelled' || request.status === status).map((status) => <option key={status}>{status}</option>)}</select><button className="text-button delete-link" disabled={busyId === request.id} onClick={() => removeRecord(request.id)}>Delete</button></div></div>
+            <div className="staff-record-footer">
+              <span>{request.email} · {request.date}</span>
+              <div className="staff-record-actions">
+                {request.status === 'Pending' && <button className="button button-primary staff-accept" disabled={busyId === request.id} onClick={() => updateStatus(request.id, 'Accepted')}>{busyId === request.id ? 'Updating…' : 'Accept request'}</button>}
+                <label className="visually-hidden" htmlFor={`status-${request.id}`}>Update status for {request.studentName}</label>
+                <select id={`status-${request.id}`} disabled={busyId === request.id} className="select-control" value={request.status} onChange={(event) => updateStatus(request.id, event.target.value)}>{REQUEST_STATUSES.filter((status) => status !== 'Cancelled' || request.status === status).map((status) => <option key={status}>{status}</option>)}</select>
+                {getRequestFeeAmount(request) > 0 && <>
+                  <label className="visually-hidden" htmlFor={`fee-status-${request.id}`}>Update fee payment status for {request.studentName}</label>
+                  <select id={`fee-status-${request.id}`} className="select-control" value={request.feeStatus || 'Unpaid'} disabled={busyId === request.id} onChange={(event) => updateFeeStatus(request.id, event.target.value)}><option>Unpaid</option><option>Paid</option></select>
+                </>}
+                <button className="button button-outline" type="button" onClick={() => downloadRequestPdf(request)}>Download PDF</button>
+                <button className="text-button delete-link" disabled={busyId === request.id} onClick={() => removeRecord(request.id)}>Delete</button>
+              </div>
+            </div>
           </article>
         ))}
         {filteredRequests.length === 0 && (
@@ -789,18 +933,33 @@ function AdminDashboard({
           ))}
         </section>
       </div>}
-      {section === 'staff' && <form className="request-form admin-account-form" noValidate onSubmit={handleCreateStaffAccount} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
-        <span className="eyebrow">AUTHORIZED STAFF ONLY</span>
-        <h2>Create a staff account</h2>
-        <p className="form-intro">Staff access is assigned securely by Firebase. New accounts can use the same sign-in form as students; authorized staff will see the staff workspace automatically.</p>
-        <div className="form-field"><label htmlFor="staff-name">Staff member's full name</label><input id="staff-name" name="staffName" autoComplete="name" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="staff-name" errors={staffValidationErrors} /></div>
-        <div className="form-field"><label htmlFor="staff-email">Work email address</label><input id="staff-email" name="staffEmail" type="email" autoComplete="email" required maxLength="254" /><FieldValidationError fieldId="staff-email" errors={staffValidationErrors} /></div>
-        <div className="form-field"><label htmlFor="staff-password">Temporary password</label><input id="staff-password" name="staffPassword" type="password" autoComplete="new-password" required minLength="12" maxLength="128" /><FieldValidationError fieldId="staff-password" errors={staffValidationErrors} /><p className="field-hint">Use at least 12 characters. Share this temporary password with the staff member securely.</p></div>
+      {section === 'staff' && <section className="admin-access-panel">
+        <div className="admin-access-grid">
+          <form className="request-form admin-account-form" noValidate onSubmit={handleCreateStudent} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
+            <span className="eyebrow">STUDENT DIRECTORY</span>
+            <h2>Add a student</h2>
+            <p className="form-intro">Register the student's Google email and university number before they sign in.</p>
+            <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="100" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="student-email">Google account email</label><input id="student-email" name="studentEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="student-email" errors={staffValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="student-number">Student number</label><input id="student-number" name="studentId" inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="student-number" errors={staffValidationErrors} /></div>
+            <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Adding student…' : 'Add student'}</button>
+          </form>
+          <form className="request-form admin-account-form" noValidate onSubmit={handleGrantAdmin} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
+            <span className="eyebrow">ADMINISTRATOR ACCESS</span>
+            <h2>Add an admin</h2>
+            <p className="form-intro">The person must have signed in with Google once so Firebase can find their account.</p>
+            <div className="form-field"><label htmlFor="admin-email">Google account email</label><input id="admin-email" name="adminEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="admin-email" errors={staffValidationErrors} /></div>
+            <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Granting access…' : 'Grant admin access'}</button>
+          </form>
+        </div>
         <ValidationErrors errors={staffValidationErrors} />
         {staffError && <p className="form-alert form-alert-error" role="alert">{staffError}</p>}
         {staffMessage && <p className="form-alert form-alert-success" role="status">{staffMessage}</p>}
-        <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Creating staff account…' : 'Create staff account'}</button>
-      </form>}
+        <section className="student-directory-list" aria-labelledby="student-directory-heading">
+          <h2 id="student-directory-heading">Registered students</h2>
+          {students.length ? students.map((student) => <article className="admin-service-item" key={student.email}><div><strong>{student.name}</strong><span>{student.studentId} · {student.email}</span></div></article>) : <p className="form-intro">No student records have been added yet.</p>}
+        </section>
+      </section>}
     </section>
   );
 }
@@ -872,7 +1031,7 @@ function SuccessPage({ navigate, title, message, primaryLabel = 'Explore service
         <span className="eyebrow">LIMKOKWING UNIVERSITY</span>
         <h1>{title}</h1>
         <p>{message}</p>
-        <div className="detail-actions"><button className="button button-primary" onClick={() => onPrimary ? onPrimary() : navigate(primaryPath)}>{primaryLabel} <span aria-hidden="true">→</span></button><button className="button button-outline" onClick={() => navigate('/')}>Go to home</button></div>
+        <div className="detail-actions"><button className="button button-primary" onClick={() => onPrimary ? onPrimary() : navigate(primaryPath)}>{primaryLabel}</button><button className="button button-outline" onClick={() => navigate('/')}>Go to home</button></div>
       </div>
     </section>
   );

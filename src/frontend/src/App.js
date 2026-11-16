@@ -31,17 +31,22 @@ import {
   cancelStudentRequest,
   createService,
   createPublicInquiry,
+  createStudentRecord,
   createStudentRequest,
+  deleteStudentRequest,
   deleteRequest,
   markAllNotificationsRead,
   markNotificationRead,
   saveStudentProfile,
   subscribeToNotifications,
+  setRequestFeeStatus,
   setRequestStatus,
+  updateStudentRequest,
 } from './models/portalRepository';
-import { createStaffAccount } from './models/staffRepository';
+import { grantAdminAccess } from './models/staffRepository';
 import './App.css';
 import './PortalRedesign.css';
+import './PortalExperience.css';
 
 function PortalFrame({ layoutProps, authDialog }) {
   return (
@@ -163,7 +168,9 @@ function PortalApp() {
 
   useEffect(() => {
     if (loading) return;
-    if ((path === '/student' || path === '/notifications' || protectedRequest) && !user) {
+    if (path === '/student' && isAdmin && user) {
+      navigate('/staff');
+    } else if ((path === '/student' || path === '/notifications' || protectedRequest) && !user) {
       setPendingPath(path);
       setAuthMode('login');
       setAuthOpen(true);
@@ -180,13 +187,13 @@ function PortalApp() {
     setAuthOpen(true);
   }, []);
 
-  const handleAuthSuccess = useCallback(async () => {
+  const handleAuthSuccess = useCallback(async (account) => {
     setAuthOpen(false);
     if (pendingPath) {
       navigate(pendingPath);
       setPendingPath('');
     } else {
-      navigate('/student');
+      navigate(account?.isAdmin ? '/staff' : '/student');
     }
   }, [navigate, pendingPath]);
 
@@ -258,6 +265,8 @@ function PortalApp() {
               await cancelStudentRequest(id);
               setNotice({ type: 'success', message: 'The request has been cancelled.' });
             }}
+            onUpdateRequest={updateStudentRequest}
+            onDeleteRequest={deleteStudentRequest}
             navigate={navigate}
           />
         ) : <div className="content-wrap" role="status">Checking student access…</div>} />
@@ -275,7 +284,9 @@ function PortalApp() {
             onCreateService={createService}
             onUpdateStatus={setRequestStatus}
             onDeleteRequest={deleteRequest}
-            onCreateStaffAccount={createStaffAccount}
+            onCreateStudent={createStudentRecord}
+            onGrantAdminAccess={grantAdminAccess}
+            onSetFeeStatus={setRequestFeeStatus}
             initialSection={staffSection}
           />
         ) : <div className="content-wrap" role="status">Checking staff access…</div>} />

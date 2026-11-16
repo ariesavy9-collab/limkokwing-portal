@@ -7,7 +7,9 @@ service cloud.firestore {
     }
 
     function staff() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn()
+        && request.auth.token.admin == true
+        && exists(/databases/$(database)/documents/adminUsers/$(request.auth.token.email));
     }
 
     function validName(name, maximumLength) {
@@ -24,6 +26,29 @@ service cloud.firestore {
         && !value.matches('^\\s*$');
     }
 
+    function registeredStudent() {
+      return signedIn()
+        && request.auth.token.email is string
+        && exists(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email))
+        && get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.email == request.auth.token.email
+        && get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.studentId.matches('^90[0-9]{7}$');
+    }
+
+    match /adminUsers/{email} {
+      allow read: if staff() || (signedIn() && request.auth.token.email == email);
+      allow write: if staff();
+    }
+
+    match /studentDirectory/{email} {
+      allow read: if staff() || (signedIn() && request.auth.token.email == email);
+      allow create, update: if staff()
+        && request.resource.data.keys().hasOnly(['name', 'email', 'studentId', 'createdAt', 'updatedAt'])
+        && validName(request.resource.data.name, 100)
+        && request.resource.data.email == email
+        && request.resource.data.studentId.matches('^90[0-9]{7}$');
+      allow delete: if staff();
+    }
+
     match /users/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
       allow create: if signedIn()
@@ -33,12 +58,13 @@ service cloud.firestore {
         ])
         && validName(request.resource.data.name, 20)
         && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email
         && request.resource.data.email.size() > 3
         && request.resource.data.email.size() <= 254
         && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
         && request.resource.data.studentId is string
-        && (request.resource.data.studentId == ''
-          || request.resource.data.studentId.matches('^[0-9]{9}$'))
+        && (staff() || (registeredStudent()
+          && request.resource.data.studentId == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.studentId))
         && (request.resource.data.phone == ''
           || request.resource.data.phone.matches('^\\+?[0-9]{8,15}$'));
       allow update: if signedIn()
@@ -48,7 +74,8 @@ service cloud.firestore {
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name'])
           || validName(request.resource.data.name, 20))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId'])
-          || request.resource.data.studentId.matches('^[0-9]{9}$'))
+          || (registeredStudent()
+            && request.resource.data.studentId == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.studentId))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone'])
           || request.resource.data.phone.matches('^\\+?[0-9]{8,15}$'));
       allow delete: if false;
@@ -62,31 +89,45 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'ownerUid', 'studentName', 'studentId', 'email', 'phone',
           'serviceId', 'service', 'description', 'date', 'status',
-          'createdAt', 'updatedAt'
+          'fee', 'feeAmount', 'feeStatus', 'createdAt', 'updatedAt'
         ])
         && request.resource.data.ownerUid == request.auth.uid
+        && registeredStudent()
+        && request.resource.data.studentId == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.studentId
         && validName(request.resource.data.studentName, 20)
-        && request.resource.data.studentId is string
-        && request.resource.data.studentId.matches('^[0-9]{9}$')
-        && request.resource.data.email is string
-        && request.resource.data.email.size() <= 254
-        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.studentId.matches('^90[0-9]{7}$')
+        && request.resource.data.email == request.auth.token.email
         && request.resource.data.phone is string
         && request.resource.data.phone.matches('^\\+?[0-9]{8,15}$')
         && validText(request.resource.data.serviceId, 1, 40)
         && validText(request.resource.data['service'], 1, 100)
         && validText(request.resource.data.description, 10, 1500)
+        && request.resource.data.fee is string
+        && request.resource.data.fee.size() <= 40
+        && request.resource.data.feeAmount is number
+        && request.resource.data.feeAmount >= 0
+        && request.resource.data.feeStatus in ['Unpaid', 'No fee']
         && request.resource.data.status == 'Pending'
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      allow update: if staff()
-        && request.resource.data.status in [
-          'Pending', 'Accepted', 'In Progress', 'Completed', 'Rejected', 'Cancelled'
-        ]
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'updatedAt'])
+      allow update: if (staff()
+          && request.resource.data.status in [
+            'Pending', 'Accepted', 'In Progress', 'Completed', 'Rejected', 'Cancelled'
+          ]
+          && (!request.resource.data.keys().hasAny(['feeStatus'])
+            || request.resource.data.feeStatus in ['Unpaid', 'Paid', 'No fee'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'feeStatus', 'updatedAt']))
+        || (signedIn()
+          && resource.data.ownerUid == request.auth.uid
+          && resource.data.status == 'Pending'
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['description', 'updatedAt'])
+          && validText(request.resource.data.description, 10, 1500))
         || (signedIn()
           && resource.data.ownerUid == request.auth.uid
           && resource.data.status == 'Pending'
@@ -95,7 +136,8 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['status', 'updatedAt']));
 
-      allow delete: if staff();
+      allow delete: if staff()
+        || (signedIn() && resource.data.ownerUid == request.auth.uid && resource.data.status == 'Pending');
     }
 
     match /publicInquiries/{inquiryId} {

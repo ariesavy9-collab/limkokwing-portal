@@ -35,7 +35,7 @@ test('form validation distinguishes personal names from other fields containing 
   form.elements.phone.value = '+266ABC12345';
 
   expect(validateForm(form)).toEqual([
-    { fieldId: 'student-id', message: 'Student number must contain exactly 9 digits.' },
+    { fieldId: 'student-id', message: 'Student number must contain 9 digits and start with 90.' },
     { fieldId: 'phone', message: 'Mobile number must be a valid phone number.' },
   ]);
 });
@@ -186,13 +186,17 @@ jest.mock('./models/portalRepository', () => ({
   cancelStudentRequest: jest.fn(),
   createPublicInquiry: jest.fn(),
   createService: jest.fn(),
+  createStudentRecord: jest.fn(),
   createStudentRequest: jest.fn(),
+  deleteStudentRequest: jest.fn(),
   deleteInquiry: jest.fn(),
   deleteRequest: jest.fn(),
   ensureUserProfile: jest.fn(),
   saveStudentProfile: jest.fn(),
   setInquiryStatus: jest.fn(),
   setRequestStatus: jest.fn(),
+  setRequestFeeStatus: jest.fn(),
+  updateStudentRequest: jest.fn(),
   markAllNotificationsRead: jest.fn(),
   markNotificationRead: jest.fn(),
   subscribeToNotifications: (uid, callback) => {
@@ -203,6 +207,9 @@ jest.mock('./models/portalRepository', () => ({
     callback([{
       id: 'request-1',
       service: 'Academic transcript',
+      fee: 'M100',
+      feeAmount: 100,
+      feeStatus: 'Unpaid',
       studentName: 'Student Example',
       studentId: 'LIM2025-0001',
       email: 'student@example.com',
@@ -213,7 +220,11 @@ jest.mock('./models/portalRepository', () => ({
     return () => {};
   },
   subscribeToPublicInquiries: () => () => {},
-  subscribeToStudentRequests: (uid, callback) => {
+  subscribeToStudentRecords: (callback) => {
+    callback([]);
+    return () => {};
+  },
+  subscribeToStudentRequests: jest.fn((uid, callback) => {
     callback([{
       id: 'REQ-2001',
       serviceId: 'transcript',
@@ -223,17 +234,17 @@ jest.mock('./models/portalRepository', () => ({
       status: 'Accepted',
     }]);
     return () => {};
-  },
+  }),
 }));
 
 test('home page explains student access and public services', () => {
   render(<HomePage navigate={jest.fn()} user={null} services={services} onStudentAccess={jest.fn()} />);
 
-  expect(screen.getByRole('heading', { name: /your university services, simplified/i })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /your one-stop student services portal/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /student sign in/i })).toBeInTheDocument();
-  expect(screen.getByText(/public enquiries welcome/i)).toBeInTheDocument();
+  expect(screen.queryByLabelText('Portal highlights')).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'General enquiry' })).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Academic transcript' })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Academic transcript' })).toBeInTheDocument();
 });
 
 test('service directory shows visitor-accessible services and filters them by name', () => {
@@ -358,7 +369,7 @@ test('nested service route displays details for the selected service', () => {
 test('React Router navigation links switch pages without a browser refresh', () => {
   render(<App />);
 
-  fireEvent.click(screen.getByRole('link', { name: 'Browse services' }));
+  fireEvent.click(screen.getAllByRole('link', { name: 'Services' })[0]);
 
   expect(screen.getByRole('heading', { name: 'University services' })).toBeInTheDocument();
   expect(window.location.hash).toBe('#/services');
@@ -428,11 +439,57 @@ test('request form saves successfully, reports a reference, and clears entered v
     studentName: 'Student Example',
     studentId: '901019217',
     serviceId: 'transcript',
+    fee: 'M100',
+    feeAmount: 100,
   })));
   expect(await screen.findByRole('status')).toHaveTextContent('Reference: request-reference-123');
   expect(screen.getByLabelText('Full name')).toHaveValue('');
   expect(screen.getByLabelText('Student number')).toHaveValue('');
   expect(screen.getByLabelText('Reason for your request')).toHaveValue('');
+});
+
+test('students can edit and delete pending requests', async () => {
+  const { subscribeToStudentRequests } = require('./models/portalRepository');
+  const onUpdateRequest = jest.fn().mockResolvedValue(undefined);
+  const onDeleteRequest = jest.fn().mockResolvedValue(undefined);
+  subscribeToStudentRequests.mockImplementation((uid, callback) => {
+    callback([{
+      id: 'REQ-PENDING',
+      serviceId: 'transcript',
+      service: 'Academic transcript',
+      description: 'Please provide my academic transcript.',
+      date: 'Today',
+      status: 'Pending',
+      feeAmount: 100,
+      fee: 'M100',
+      feeStatus: 'Unpaid',
+    }]);
+    return () => {};
+  });
+  const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+  render(
+    <StudentDashboard
+      user={{ uid: 'student-1', displayName: 'Student Example', email: 'student@example.com' }}
+      profile={{ name: 'Student Example', studentId: '901019217' }}
+      profileError=""
+      onSaveProfile={jest.fn()}
+      onCancelRequest={jest.fn()}
+      onUpdateRequest={onUpdateRequest}
+      onDeleteRequest={onDeleteRequest}
+      navigate={jest.fn()}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit request' }));
+  fireEvent.change(screen.getByLabelText('Edit request details'), { target: { value: 'Please provide the transcript for this academic year.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(onUpdateRequest).toHaveBeenCalledWith('REQ-PENDING', 'Please provide the transcript for this academic year.'));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Delete request' })).toBeEnabled());
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete request' }));
+  await waitFor(() => expect(onDeleteRequest).toHaveBeenCalledWith('REQ-PENDING'));
+  confirm.mockRestore();
 });
 
 test('request validation shows red errors and blocks incomplete submissions', () => {
@@ -475,12 +532,24 @@ test('request validation rejects overlong names and non-numeric student and phon
   fireEvent.submit(screen.getByRole('button', { name: /submit request/i }).closest('form'));
 
   expect(screen.getByRole('alert')).toHaveTextContent(/full name must be no more than 20 characters/i);
-  expect(screen.getByRole('alert')).toHaveTextContent(/student number must contain exactly 9 digits/i);
+  expect(screen.getByRole('alert')).toHaveTextContent(/student number must contain 9 digits and start with 90/i);
   expect(screen.getByRole('alert')).toHaveTextContent(/phone number using digits only/i);
   expect(onStudentSubmit).not.toHaveBeenCalled();
 });
 
 test('requests page displays the current requests from its Firestore subscription', () => {
+  const { subscribeToStudentRequests } = require('./models/portalRepository');
+  subscribeToStudentRequests.mockImplementation((uid, callback) => {
+    callback([{
+      id: 'REQ-2001',
+      serviceId: 'transcript',
+      service: 'Academic transcript',
+      description: 'Please provide my official transcript.',
+      date: 'Today',
+      status: 'Accepted',
+    }]);
+    return () => {};
+  });
   render(
     <StudentDashboard
       user={{ uid: 'student-1', displayName: 'Student Example', email: 'student@example.com' }}
@@ -495,6 +564,8 @@ test('requests page displays the current requests from its Firestore subscriptio
   expect(screen.getByText('REFERENCE · REQ-2001')).toBeInTheDocument();
   expect(screen.getByText('Please provide my official transcript.')).toBeInTheDocument();
   expect(screen.getAllByText('Accepted').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('M100.00').length).toBeGreaterThan(0);
+  expect(screen.getByRole('heading', { name: 'Outstanding service fees' })).toBeInTheDocument();
 });
 
 test('staff can accept a pending request', async () => {
@@ -505,7 +576,7 @@ test('staff can accept a pending request', async () => {
       onCreateService={jest.fn()}
       onUpdateStatus={onUpdateStatus}
       onDeleteRequest={jest.fn()}
-      onCreateStaffAccount={jest.fn()}
+      onSetFeeStatus={jest.fn()}
     />,
   );
 
@@ -514,30 +585,36 @@ test('staff can accept a pending request', async () => {
   await waitFor(() => expect(onUpdateStatus).toHaveBeenCalledWith('request-1', 'Accepted'));
 });
 
-test('staff account form provisions an account through its protected callback', async () => {
-  const onCreateStaffAccount = jest.fn().mockResolvedValue({ email: 'staff@example.com' });
+test('staff can add a student record and grant admin access to Google accounts', async () => {
+  const onCreateStudent = jest.fn().mockResolvedValue(undefined);
+  const onGrantAdminAccess = jest.fn().mockResolvedValue(undefined);
   render(
     <AdminDashboard
       services={services}
       onCreateService={jest.fn()}
       onUpdateStatus={jest.fn()}
       onDeleteRequest={jest.fn()}
-      onCreateStaffAccount={onCreateStaffAccount}
+      onCreateStudent={onCreateStudent}
+      onGrantAdminAccess={onGrantAdminAccess}
+      onSetFeeStatus={jest.fn()}
       initialSection="staff"
     />,
   );
 
-  fireEvent.change(screen.getByLabelText("Staff member's full name"), { target: { value: 'Staff Member' } });
-  fireEvent.change(screen.getByLabelText('Work email address'), { target: { value: 'staff@example.com' } });
-  fireEvent.change(screen.getByLabelText('Temporary password'), { target: { value: 'a-long-secure-password' } });
-  fireEvent.submit(screen.getByRole('button', { name: /create staff account/i }).closest('form'));
+  fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Student Example' } });
+  fireEvent.change(document.querySelector('#student-email'), { target: { value: 'student@example.com' } });
+  fireEvent.change(screen.getByLabelText('Student number'), { target: { value: '901019217' } });
+  fireEvent.submit(screen.getByRole('button', { name: 'Add student' }).closest('form'));
 
-  await waitFor(() => expect(onCreateStaffAccount).toHaveBeenCalledWith({
-    name: 'Staff Member',
-    email: 'staff@example.com',
-    password: 'a-long-secure-password',
+  await waitFor(() => expect(onCreateStudent).toHaveBeenCalledWith({
+    name: 'Student Example',
+    email: 'student@example.com',
+    studentId: '901019217',
   }));
-  expect(await screen.findByRole('status')).toHaveTextContent(/staff account created for staff@example.com/i);
+
+  fireEvent.change(document.querySelector('#admin-email'), { target: { value: 'admin@example.com' } });
+  fireEvent.submit(screen.getByRole('button', { name: /grant admin access/i }).closest('form'));
+  await waitFor(() => expect(onGrantAdminAccess).toHaveBeenCalledWith('admin@example.com'));
 });
 
 test('a visitor can submit a public enquiry without signing in', () => {
@@ -556,7 +633,7 @@ test('a student request asks an unauthenticated visitor to sign in', () => {
   render(<App />);
 
   expect(screen.getByRole('dialog')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Sign in to your portal' })).toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });
@@ -566,7 +643,7 @@ test('the student dashboard route waits for authentication before rendering', as
   render(<App />);
 
   expect(await screen.findByRole('dialog')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Sign in to your portal' })).toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });

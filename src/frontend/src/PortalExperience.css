@@ -1,0 +1,260 @@
+:root {
+  --ink: #101828;
+  --muted: #667085;
+  --faint: #8792a2;
+  --paper: #f3f6fb;
+  --surface: #fff;
+  --line: #dce4ef;
+  --purple: #0755d9;
+  --purple-dark: #0648b7;
+  --purple-soft: #eaf1ff;
+  --gold: #f2a900;
+  --gold-soft: #fff5d8;
+  --blue: #0755d9;
+  --red: #c62828;
+  --shadow: 0 8px 26px rgba(20, 42, 78, .08);
+  --content-width: 1280px;
+}
+
+html, body, button, input, select, textarea, h1, h2, h3, h4, p, a, label, small, strong, span {
+  font-family: Arial, Helvetica, sans-serif !important;
+  letter-spacing: 0 !important;
+}
+
+body { color: var(--ink); background: var(--paper); }
+.portal-shell { background: var(--paper); }
+.portal-sidebar { width: 232px; background: #071d3b; border-color: #142d50; }
+.portal-brand { min-height: 82px; border-color: #1d3657; }
+.portal-nav-group { padding: 20px 11px 12px; }
+.portal-nav-label { color: #a9bad3; font-size: 10px; }
+.portal-nav-link, .portal-sign-in-link, .portal-sign-in-link:hover {
+  min-height: 42px;
+  color: #e6edf7;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 4px;
+}
+.portal-nav-link:hover { background: #12355f; color: #fff; }
+.portal-nav-link.active, .portal-nav-link.active:hover { color: #fff; background: #0755d9; box-shadow: none; }
+.portal-help-label { margin-top: 24px; }
+.portal-assistance { background: #102a4b; border-radius: 4px; }
+.portal-assistance strong { color: #fff; }
+.portal-assistance p, .portal-version { color: #b4c3d8; }
+.portal-assistance a { color: #83b9ff; }
+.portal-main { margin-left: 232px; }
+.portal-topbar { min-height: 70px; padding: 12px clamp(18px, 3vw, 36px); background: rgba(255,255,255,.97); }
+.portal-heading h1 { font-size: 17px; font-weight: 700; }
+.portal-content { max-width: 1500px; padding: 22px clamp(18px, 3vw, 36px) 28px; }
+.content-wrap { padding-top: 8px; }
+.portal-footer { margin-top: 34px; }
+
+.hero {
+  min-height: 286px;
+  border-radius: 5px;
+  box-shadow: none;
+  background: #092752;
+}
+.hero-photo {
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 28, 62, .96) 0%, rgba(5, 35, 75, .82) 48%, rgba(5, 35, 75, .08) 100%),
+    url('https://static.africa-press.net/lesotho/sites/62/2025/11/sm_1762272833.53713.jpg') center 48% / cover no-repeat;
+}
+.hero-content { width: 58%; min-height: 286px; padding: 34px clamp(24px, 4vw, 52px); }
+.hero-eyebrow { color: #c7ddff; }
+.hero h1 { max-width: 560px; margin: 15px 0 10px; color: #fff; font-size: 34px; font-weight: 700; line-height: 1.15; }
+.hero h1 em { color: #fff; }
+.hero-title-mobile { display: none; }
+.hero-mobile-logo { display: none; }
+.hero-content > p { max-width: 470px; color: #e6edf7; font-size: 14px; line-height: 1.55; }
+.hero-actions { margin-top: 20px; }
+.hero-actions .button-primary, .button-primary { background: #0755d9; }
+.hero-actions .button-primary:hover, .button-primary:hover:not(:disabled) { background: #0648b7; }
+.button { min-height: 40px; border-radius: 4px; }
+.button-outline { color: #0755d9; border-color: #c7d4e6; }
+.button-outline:hover:not(:disabled) { color: #0648b7; background: #eaf1ff; border-color: #9bb9e7; }
+.button-text, .text-button, .service-link { color: #0755d9; }
+.button-text:hover, .text-button:hover, .service-link:hover { color: #0648b7; }
+.hero .button-light { color: #fff; background: rgba(255,255,255,.08); }
+.hero-caption { display: none; }
+
+.section-block { padding: 34px 0 0; }
+.section-block:not(.services-preview), .student-callout { display: none; }
+.section-heading { align-items: center; margin-bottom: 16px; }
+.section-heading h2, .dashboard-section-heading h2 { margin-top: 4px; color: #101828; font-size: 21px; font-weight: 700; }
+.service-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.service-card, .benefit-card, .pathway-card, .course-card, .fees-panel, .detail-panel, .contact-grid article {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(20, 42, 78, .035);
+}
+.service-card { min-height: 150px; padding: 15px; }
+.service-icon, .pathway-icon, .course-icon, .detail-icon, .contact-icon, .callout-icon {
+  color: #0755d9;
+  background: #eaf1ff;
+  border-radius: 5px;
+}
+.service-card h3 { margin: 10px 0 5px; color: #101828; font-size: 14px; font-weight: 700; }
+.service-card p { margin: 0; color: #667085; font-size: 11px; line-height: 1.45; }
+.service-meta { margin-top: 11px; color: #667085; font-size: 10px; }
+.service-meta > span:last-child { color: #0755d9; font-weight: 700; }
+.service-link { min-height: 30px; padding: 0; color: #0755d9; background: transparent; font-size: 11px; }
+.service-link:hover { color: #0648b7; background: transparent; transform: none; }
+
+.page-heading h1 { color: #101828; font-size: 27px; font-weight: 700; }
+.page-heading > div > p, .page-heading p, .form-intro, .field-hint, .privacy-note { color: #667085; }
+.eyebrow { color: #0755d9; }
+.request-form, .profile-panel, .admin-service-list, .fees-panel, .detail-panel, .empty-state, .request-item, .staff-record {
+  border-radius: 5px;
+  box-shadow: 0 2px 7px rgba(20, 42, 78, .04);
+}
+.request-aside { background: #0b3268; border-color: #082954; border-radius: 5px; }
+.form-field input, .form-field textarea, .form-field select, .auth-form input, .service-filter, .staff-search, .select-control {
+  border-color: #d3deec;
+  border-radius: 4px;
+}
+.form-field input:focus, .form-field textarea:focus, .form-field select:focus, .auth-form input:focus, .service-filter:focus-within {
+  border-color: #0755d9;
+  box-shadow: 0 0 0 3px rgba(7, 85, 217, .12);
+}
+.dashboard-stats > div { min-height: 78px; border-radius: 5px; }
+.dashboard-stats > div svg { color: #0755d9; }
+.dashboard-stats .debt-stat { border-color: #f0d99c; background: #fffaf0; }
+.dashboard-stats .debt-stat strong { color: #a15a00; }
+.outstanding-fees { margin: 22px 0 30px; padding: 18px; background: #fff; border: 1px solid var(--line); border-radius: 5px; }
+.outstanding-fees .dashboard-section-heading { margin: 0 0 10px; }
+.outstanding-fees .dashboard-section-heading > strong { color: #a15a00; font-size: 19px; }
+.fee-list { border-top: 1px solid var(--line); }
+.fee-row { min-height: 43px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 20px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.fee-row strong { color: #101828; }
+.fee-unpaid { color: #a15a00; font-weight: 700; }
+.request-edit-form { display: grid; gap: 8px; margin: 10px 0; }
+.request-edit-form textarea { width: 100%; min-height: 90px; padding: 10px; border: 1px solid #d3deec; border-radius: 4px; resize: vertical; }
+.request-edit-form .button { justify-self: start; }
+.request-item-main { gap: 7px; }
+.request-item-status { align-items: flex-end; gap: 8px; }
+.request-date, .request-fee { color: #667085; font-size: 10px; }
+.request-pdf-link { align-self: flex-start; }
+.staff-record-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.staff-record-actions .select-control { min-height: 34px; }
+.admin-access-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.admin-account-form { align-self: start; }
+.student-directory-list { margin-top: 20px; padding: 18px; background: #fff; border: 1px solid var(--line); border-radius: 5px; }
+.student-directory-list h2 { margin: 0 0 10px; font-size: 16px; }
+.student-directory-list .admin-service-item:last-child { border-bottom: 0; }
+.staff-tabs { gap: 18px; }
+.staff-tabs button { white-space: nowrap; }
+.status-accepted { color: #0755d9; background: #eaf1ff; }
+.status-in-progress { color: #8a5a00; background: #fff3d2; }
+.status-completed, .status-resolved { color: #12643b; background: #dcfce7; }
+.empty-state { background: #fff; }
+.auth-dialog { border-radius: 5px; }
+.modal-backdrop { background: rgba(6, 25, 52, .6); }
+.portal-menu-toggle { color: #101828; background: #eaf1ff; border-radius: 4px; }
+.portal-sidebar-scrim { background: rgba(6, 25, 52, .42); }
+.mobile-bottom-nav { display: none; }
+
+@media (max-width: 900px) {
+  .portal-sidebar { width: min(280px, 84vw); }
+  .portal-main { margin-left: 0; }
+  .portal-content { padding: 17px 18px 24px; }
+  .portal-topbar { min-height: 64px; }
+  .portal-footer { margin-bottom: 10px; }
+  .hero { min-height: 265px; }
+  .hero-content { min-height: 265px; }
+  .mobile-bottom-nav {
+    position: fixed;
+    z-index: 18;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    min-height: 62px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 5px 8px max(5px, env(safe-area-inset-bottom));
+    background: rgba(255,255,255,.98);
+    border-top: 1px solid var(--line);
+  }
+  .mobile-bottom-nav a, .mobile-bottom-nav button {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 3px;
+    color: #667085;
+    background: transparent;
+    border: 0;
+    font-size: 10px;
+    text-decoration: none;
+  }
+  .mobile-bottom-nav a.active, .mobile-bottom-nav button.active { color: #0755d9; font-weight: 700; }
+  .portal-content { padding-bottom: 90px; }
+}
+
+@media (max-width: 600px) {
+  .portal-topbar { gap: 9px; padding: 9px 12px; }
+  .portal-heading h1 { font-size: 14px; }
+  .portal-content { padding: 12px 12px 86px; }
+  .portal-breadcrumb { display: none; }
+  .portal-footer { display: none; }
+  .hero { min-height: 300px; }
+  .hero-photo { display: block; inset: 0; border-radius: 0; background-position: 60% center; }
+  .hero-content { width: 100%; min-height: 300px; padding: 25px 20px; justify-content: flex-end; }
+  .hero-title-desktop { display: none; }
+  .hero-title-mobile { display: inline; }
+  .hero-mobile-logo { width: 166px; height: 54px; display: block; margin-bottom: 12px; object-fit: contain; object-position: left center; }
+  .portal-help-widget { display: none; }
+  .hero h1 { max-width: 300px; margin: 12px 0 8px; font-size: 28px; }
+  .hero-content > p { max-width: 290px; font-size: 12px; }
+  .hero-actions { gap: 8px; margin-top: 14px; }
+  .hero-actions .button { min-height: 37px; padding: 0 12px; font-size: 11px; }
+  .hero-note { margin-top: 13px; font-size: 10px; }
+  .section-block { padding-top: 22px; }
+  .section-heading { margin-bottom: 12px; }
+  .section-heading h2 { font-size: 18px; }
+  .service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .service-card { min-height: 155px; padding: 11px; }
+  .service-card h3 { font-size: 12px; }
+  .service-card p { font-size: 10px; }
+  .service-meta { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .service-link { font-size: 10px; }
+  .dashboard-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .dashboard-stats > div { min-height: 70px; padding: 12px; }
+  .dashboard-stats > div span { font-size: 10px; }
+  .dashboard-stats > div strong { font-size: 19px; }
+  .page-heading { align-items: flex-start; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+  .page-heading h1 { font-size: 24px; }
+  .dashboard-section-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .dashboard-section-heading h2 { font-size: 18px; }
+  .request-item { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; padding: 13px; }
+  .request-item-status { grid-column: 2; align-items: flex-start; flex-flow: row wrap; }
+  .request-item-status .status-pill { margin-right: auto; }
+  .request-item-status .text-button { font-size: 10px; }
+  .request-reference { font-size: 9px; }
+  .request-item-main h3 { font-size: 13px; }
+  .request-item-main > p { font-size: 11px; }
+  .outstanding-fees { padding: 13px; }
+  .fee-row { grid-template-columns: minmax(0,1fr) auto; gap: 5px 12px; padding: 8px 0; }
+  .fee-unpaid { grid-column: 1 / -1; }
+  .admin-access-grid { grid-template-columns: minmax(0,1fr); }
+  .staff-controls { align-items: stretch; }
+  .staff-tabs { gap: 14px; overflow-x: auto; }
+  .staff-tabs button { font-size: 11px; }
+  .staff-record-header { align-items: flex-start; }
+  .staff-record-footer { align-items: flex-start; flex-direction: column; }
+  .staff-record-actions { justify-content: flex-start; }
+  .staff-record-actions .button, .staff-record-actions .select-control { min-height: 34px; }
+  .auth-dialog { width: min(440px, calc(100vw - 24px)); padding: 26px 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+@media print {
+  .portal-sidebar, .portal-topbar, .portal-footer, .portal-help-widget, .mobile-bottom-nav, .portal-content > .notice { display: none !important; }
+  .portal-main { margin: 0; }
+  .portal-content { padding: 0; }
+}

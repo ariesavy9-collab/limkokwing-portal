@@ -3,12 +3,8 @@ import { firebaseApp } from './firebase';
 
 const functions = getFunctions(firebaseApp, 'us-central1');
 
-export async function createStaffAccount(account) {
-  const createAccount = httpsCallable(functions, 'createStaffAccount');
-  const result = await createAccount({
-    name: account.name.trim(),
-    email: account.email.trim().toLowerCase(),
-    password: account.password,
-  });
+export async function grantAdminAccess(email) {
+  const grantAccess = httpsCallable(functions, 'grantAdminAccess');
+  const result = await grantAccess({ email: email.trim().toLowerCase() });
   return result.data;
 }

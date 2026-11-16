@@ -32,9 +32,9 @@ export async function ensureUserProfile(user, initialDetails = {}) {
     const existingDetails = profile.data();
     const missingDetails = {
       updatedAt: details.updatedAt,
-      ...(!existingDetails.name && details.name ? { name: details.name } : {}),
-      ...(!existingDetails.phone && details.phone ? { phone: details.phone } : {}),
-      ...(!existingDetails.studentId && details.studentId ? { studentId: details.studentId } : {}),
+      ...(details.name && existingDetails.name !== details.name ? { name: details.name } : {}),
+      ...(details.phone && existingDetails.phone !== details.phone ? { phone: details.phone } : {}),
+      ...(details.studentId && existingDetails.studentId !== details.studentId ? { studentId: details.studentId } : {}),
     };
     await setDoc(profileRef, missingDetails, { merge: true });
     return;
@@ -77,6 +77,9 @@ export async function createStudentRequest(uid, request) {
     service: request.service,
     description: request.description.trim(),
     date: request.date,
+    fee: request.fee,
+    feeAmount: request.feeAmount,
+    feeStatus: request.feeAmount > 0 ? 'Unpaid' : 'No fee',
     status: 'Pending',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -111,6 +114,17 @@ export async function createService(service) {
     updatedAt: serverTimestamp(),
   });
   return reference.id;
+}
+
+export async function createStudentRecord(student) {
+  const email = student.email.trim().toLowerCase();
+  await setDoc(doc(db, 'studentDirectory', email), {
+    name: student.name.trim(),
+    email,
+    studentId: student.studentId.trim(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 function watchCollection(collectionName, callback, onError, ownerUid) {
@@ -177,6 +191,10 @@ export function subscribeToServices(callback, onError) {
   return watchCollection('services', callback, onError);
 }
 
+export function subscribeToStudentRecords(callback, onError) {
+  return watchCollection('studentDirectory', callback, onError);
+}
+
 export async function cancelStudentRequest(requestId) {
   await updateDoc(doc(db, 'serviceRequests', requestId), {
     status: 'Cancelled',
@@ -184,9 +202,27 @@ export async function cancelStudentRequest(requestId) {
   });
 }
 
+export async function updateStudentRequest(requestId, description) {
+  await updateDoc(doc(db, 'serviceRequests', requestId), {
+    description: description.trim(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteStudentRequest(requestId) {
+  await deleteDoc(doc(db, 'serviceRequests', requestId));
+}
+
 export async function setRequestStatus(requestId, status) {
   await updateDoc(doc(db, 'serviceRequests', requestId), {
     status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function setRequestFeeStatus(requestId, feeStatus) {
+  await updateDoc(doc(db, 'serviceRequests', requestId), {
+    feeStatus,
     updatedAt: serverTimestamp(),
   });
 }

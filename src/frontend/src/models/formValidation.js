@@ -1,7 +1,7 @@
 const NAME_PATTERN = /^[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[0-9]{8,15}$/;
-const STUDENT_ID_PATTERN = /^[0-9]{9}$/;
+const STUDENT_ID_PATTERN = /^90[0-9]{7}$/;
 const VERIFICATION_CODE_PATTERN = /^[0-9]{6}$/;
 const NAME_VALIDATION_MESSAGE = 'can only contain letters and common name punctuation; numbers are not allowed.';
 
@@ -118,7 +118,7 @@ export function validateForm(form, { touchedOnly = false } = {}) {
     } else if (fieldType === 'name' && value && !NAME_PATTERN.test(value)) {
       message = `${label} ${NAME_VALIDATION_MESSAGE}`;
     } else if (fieldType === 'studentId' && value && !STUDENT_ID_PATTERN.test(value)) {
-      message = field.dataset.validationMessage || `${label} must contain exactly 9 digits.`;
+      message = field.dataset.validationMessage || `${label} must contain 9 digits and start with 90.`;
     } else if (fieldType === 'phone' && value && !PHONE_PATTERN.test(value)) {
       message = field.dataset.validationMessage || `${label} must be a valid phone number.`;
     } else if (fieldType === 'verificationCode' && value && !VERIFICATION_CODE_PATTERN.test(value)) {

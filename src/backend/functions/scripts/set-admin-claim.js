@@ -1,5 +1,6 @@
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
+const { FieldValue, getFirestore } = require('firebase-admin/firestore');
 
 const email = process.argv[2]?.trim().toLowerCase();
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'limkokwing-university';
@@ -18,6 +19,11 @@ async function grantInitialStaffAccess() {
     ...user.customClaims,
     admin: true,
   });
+  await getFirestore().collection('adminUsers').doc(email).set({
+    email,
+    name: user.displayName || email,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
   console.log(`Staff access granted to ${user.email}. Ask them to sign out and sign in again.`);
 }
 

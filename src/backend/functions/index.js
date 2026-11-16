@@ -9,7 +9,6 @@ initializeApp();
 
 const auth = getAuth();
 const db = getFirestore();
-const namePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*$/;
 
 async function createNotification(eventId, notification) {
   try {
@@ -119,64 +118,49 @@ exports.notifyOnProfileUpdated = onDocumentUpdated({
   });
 });
 
-exports.createStaffAccount = onCall({ region: 'us-central1' }, async (request) => {
-  if (request.auth?.token?.admin !== true) {
-    throw new HttpsError('permission-denied', 'Only authorized university staff can create staff accounts.');
+exports.grantAdminAccess = onCall({ region: 'us-central1' }, async (request) => {
+  const callerEmail = request.auth?.token?.email?.toLowerCase();
+  const callerRecord = callerEmail
+    ? await db.collection('adminUsers').doc(callerEmail).get()
+    : null;
+  if (request.auth?.token?.admin !== true || !callerRecord?.exists) {
+    throw new HttpsError('permission-denied', 'Only authorized university staff can grant admin access.');
   }
 
-  const name = typeof request.data?.name === 'string' ? request.data.name.trim() : '';
   const email = typeof request.data?.email === 'string' ? request.data.email.trim().toLowerCase() : '';
-  const password = typeof request.data?.password === 'string' ? request.data.password : '';
-
-  if (name.length < 2 || name.length > 100 || !namePattern.test(name)) {
-    throw new HttpsError('invalid-argument', 'Enter a name using letters, spaces, apostrophes, periods, or hyphens (2–100 characters).');
-  }
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new HttpsError('invalid-argument', 'Enter a valid work email address.');
-  }
-  if (password.length < 12 || password.length > 128) {
-    throw new HttpsError('invalid-argument', 'The temporary password must be between 12 and 128 characters.');
+    throw new HttpsError('invalid-argument', 'Enter a valid Google account email address.');
   }
 
   let userRecord;
   try {
-    userRecord = await auth.createUser({
-      displayName: name,
-      email,
-      password,
-      emailVerified: false,
-      disabled: false,
-    });
+    userRecord = await auth.getUserByEmail(email);
   } catch (error) {
-    if (error.code === 'auth/email-already-exists') {
-      throw new HttpsError('already-exists', 'An account already exists for that email address.');
+    if (error.code === 'auth/user-not-found') {
+      throw new HttpsError('not-found', 'This Google account has not signed in yet. Ask the user to sign in once, then add them as an admin.');
     }
-    logger.error('Could not create a staff account.', { code: error.code || 'unknown' });
-    throw new HttpsError('internal', 'The staff account could not be created. Please try again.');
+    logger.error('Could not find the requested Google account.', { code: error.code || 'unknown' });
+    throw new HttpsError('internal', 'The Google account could not be found. Please try again.');
   }
 
   try {
-    const existingUser = await auth.getUser(userRecord.uid);
+    await db.collection('adminUsers').doc(email).set({
+      email,
+      name: userRecord.displayName || email,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
     await auth.setCustomUserClaims(userRecord.uid, {
-      ...existingUser.customClaims,
+      ...userRecord.customClaims,
       admin: true,
     });
   } catch (error) {
-    try {
-      await auth.deleteUser(userRecord.uid);
-    } catch (cleanupError) {
-      logger.error('Could not remove a partially provisioned staff account.', {
-        uid: userRecord.uid,
-        code: cleanupError.code || 'unknown',
-      });
-    }
-    logger.error('Could not assign staff permissions.', {
+    logger.error('Could not grant admin access.', {
       uid: userRecord.uid,
       code: error.code || 'unknown',
     });
-    throw new HttpsError('internal', 'The account could not be granted staff access. Please try again.');
+    throw new HttpsError('internal', 'Admin access could not be granted. Please try again.');
   }
 
-  logger.info('Staff account provisioned.', { uid: userRecord.uid });
+  logger.info('Admin access granted.', { uid: userRecord.uid });
   return { uid: userRecord.uid, email: userRecord.email };
 });

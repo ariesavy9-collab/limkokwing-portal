@@ -27,20 +27,19 @@ function SiteLayout({
   const accountMenu = useRef(null);
   const accountMenuButton = useRef(null);
   const links = [
-    { label: 'Overview', path: '/' },
-    { label: 'Browse services', path: '/services' },
-    { label: 'New request', path: '/services' },
-    { label: 'Requests & tracking', path: '/student', protected: true },
+    { label: 'Dashboard', path: '/' },
+    { label: 'Services', path: '/services' },
+    { label: 'My Requests', path: '/student', protected: true },
     { label: 'Help & contact', path: '/contact' },
   ];
   const titles = {
-    '/': 'Welcome to Student Service Hub',
-    '/student': 'Your student overview',
-    '/services': 'Browse university services',
+    '/': 'Student Service Request System',
+    '/student': 'My Requests',
+    '/services': 'Services',
     '/courses': 'Courses and programmes',
     '/fees': 'Tuition and fees',
     '/contact': 'Help & support',
-    '/staff': 'Staff workspace',
+    '/staff': 'Manage Requests (Admin)',
     '/notifications': 'Notifications',
   };
   const activePath = currentPath.startsWith('/request/')
@@ -50,11 +49,11 @@ function SiteLayout({
       : currentPath === '/submitted'
         ? '/contact'
         : currentPath;
-  const pageTitle = titles[currentPath] || (currentPath.startsWith('/request/') ? 'Submit a service request' : 'Student Service Hub');
+  const pageTitle = titles[currentPath] || (currentPath.startsWith('/request/') ? 'Submit a service request' : 'Student Service Request System');
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Student';
 
   useEffect(() => {
-    document.title = `${pageTitle} | Limkokwing Student Service Hub`;
+    document.title = `${pageTitle} | Limkokwing Student Service Request System`;
   }, [pageTitle]);
 
   useEffect(() => {
@@ -111,13 +110,11 @@ function SiteLayout({
             {!user && (
               <button className="portal-nav-link portal-sign-in-link" onClick={() => { setMenuOpen(false); onSignIn(); }}>
                 <Icon name="user" size={17} />
-                Sign in / Create account
+                Sign in with Google
               </button>
             )}
             {links.map((link) => {
-              const active = link.label === 'New request'
-                ? currentPath.startsWith('/request/')
-                : link.label === 'Browse services'
+              const active = link.label === 'Services'
                   ? activePath === '/services' && !currentPath.startsWith('/request/')
                   : activePath === link.path;
               const className = `portal-nav-link${active ? ' active' : ''}`;
@@ -162,7 +159,7 @@ function SiteLayout({
           <div className="portal-assistance">
             <strong>Need assistance?</strong>
             <p>Contact the Student Affairs office for help with your request.</p>
-            <a href="mailto:liteboho.molaoa@limkokwing.ac.ls">Contact support ↗</a>
+            <a href="mailto:liteboho.molaoa@limkokwing.ac.ls">Contact support</a>
           </div>
           <small className="portal-version">LIMKOKWING UNIVERSITY · MASERU</small>
         </div>
@@ -256,6 +253,20 @@ function SiteLayout({
             <span>© {new Date().getFullYear()} Limkokwing University</span>
           </footer>
         </main>
+        <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+          <Link to="/" className={currentPath === '/' ? 'active' : ''} aria-current={currentPath === '/' ? 'page' : undefined}>
+            <Icon name="home" size={19} /><span>Home</span>
+          </Link>
+          <Link to="/services" className={currentPath.startsWith('/services') ? 'active' : ''} aria-current={currentPath.startsWith('/services') ? 'page' : undefined}>
+            <Icon name="grid" size={19} /><span>Services</span>
+          </Link>
+          <button type="button" className={currentPath === '/student' ? 'active' : ''} onClick={onStudentAccess}>
+            <Icon name="document" size={19} /><span>My requests</span>
+          </button>
+          <button type="button" className={currentPath === '/student' ? 'active' : ''} onClick={onStudentAccess}>
+            <Icon name="user" size={19} /><span>Profile</span>
+          </button>
+        </nav>
       </div>
       <div className="portal-help-widget" ref={helpWidget}>
         {helpOpen && (
