@@ -38,12 +38,14 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   saveStudentProfile,
+  subscribeToStudentLetters,
   subscribeToNotifications,
   setRequestFeeStatus,
   setRequestStatus,
+  sendStudentLetterAndAcceptRequest,
   updateStudentRequest,
 } from './models/portalRepository';
-import { grantAdminAccess } from './models/staffRepository';
+import { grantAdminAccess, removeStudent } from './models/staffRepository';
 import './App.css';
 import './PortalRedesign.css';
 import './PortalExperience.css';
@@ -261,6 +263,7 @@ function PortalApp() {
               await saveStudentProfile(user, details);
               setNotice({ type: 'success', message: 'Your student profile has been updated.' });
             }}
+            onSubscribeToLetters={subscribeToStudentLetters}
             onCancelRequest={async (id) => {
               await cancelStudentRequest(id);
               setNotice({ type: 'success', message: 'The request has been cancelled.' });
@@ -285,8 +288,11 @@ function PortalApp() {
             onUpdateStatus={setRequestStatus}
             onDeleteRequest={deleteRequest}
             onCreateStudent={createStudentRecord}
+            onSendLetterAndAcceptRequest={sendStudentLetterAndAcceptRequest}
             onGrantAdminAccess={grantAdminAccess}
             onSetFeeStatus={setRequestFeeStatus}
+            onDeleteStudent={removeStudent}
+            adminEmail={user.email}
             initialSection={staffSection}
           />
         ) : <div className="content-wrap" role="status">Checking staff access…</div>} />

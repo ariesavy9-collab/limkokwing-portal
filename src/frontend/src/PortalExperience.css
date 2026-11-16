@@ -131,6 +131,27 @@ body { color: var(--ink); background: var(--paper); }
 .request-edit-form { display: grid; gap: 8px; margin: 10px 0; }
 .request-edit-form textarea { width: 100%; min-height: 90px; padding: 10px; border: 1px solid #d3deec; border-radius: 4px; resize: vertical; }
 .request-edit-form .button { justify-self: start; }
+.dashboard-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.student-letters { margin: 24px 0 30px; }
+.student-letter-list { display: grid; gap: 10px; }
+.student-letter-item, .student-directory-record {
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.student-letter-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.student-letter-item h3, .student-directory-record h2 { margin: 0 0 5px; font-size: 15px; }
+.student-letter-item span, .student-directory-record-heading span { color: var(--muted); font-size: 11px; }
+.student-letter-item p { max-width: 760px; margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
+.student-directory-list { display: grid; gap: 10px; }
+.student-directory-record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.student-directory-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin: 16px 0 0; }
+.student-directory-details > div { min-width: 0; }
+.student-directory-details dt { color: var(--muted); font-size: 10px; }
+.student-directory-details dd { overflow-wrap: anywhere; margin: 3px 0 0; color: var(--ink); font-size: 12px; }
+.admin-letter-editor { margin: 14px 0; padding: 18px; }
+.admin-letter-editor textarea { min-height: 210px; white-space: pre-wrap; }
 .request-item-main { gap: 7px; }
 .request-item-status { align-items: flex-end; gap: 8px; }
 .request-date, .request-fee { color: #667085; font-size: 10px; }
@@ -239,6 +260,9 @@ body { color: var(--ink); background: var(--paper); }
   .fee-row { grid-template-columns: minmax(0,1fr) auto; gap: 5px 12px; padding: 8px 0; }
   .fee-unpaid { grid-column: 1 / -1; }
   .admin-access-grid { grid-template-columns: minmax(0,1fr); }
+  .student-letter-item { align-items: stretch; flex-direction: column; }
+  .student-directory-details { grid-template-columns: minmax(0,1fr); }
+  .student-directory-record-heading { align-items: flex-start; flex-direction: column; }
   .staff-controls { align-items: stretch; }
   .staff-tabs { gap: 14px; overflow-x: auto; }
   .staff-tabs button { font-size: 11px; }

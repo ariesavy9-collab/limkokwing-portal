@@ -18,7 +18,7 @@ The app uses the Limkokwing Firebase project configured in `src/frontend/src/mod
 3. The default Firestore database is already present in the configured project. Ensure the Authentication providers and authorized domains above are configured before testing sign-in.
 4. The repository is linked to the `limkokwing-university` Firebase project. To publish the Firestore rules, run `firebase deploy --only firestore:rules` after reviewing the rules and confirming the target project.
 5. After installing dependencies at the repository root, deploy the protected admin-access function using `firebase deploy --only functions`.
-6. To bootstrap the first administrator, have them attempt Google sign-in once, then run `gcloud auth application-default login` on a trusted administrator machine and `node src/backend/functions/scripts/set-admin-claim.js kabeloselomo313@gmail.com`. The script requires the Google account to exist in Firebase Authentication. Ask the administrator to sign out and sign in again so the new role is included in their token. Never put passwords or Firebase Admin credentials in the browser or repository.
+6. To bootstrap the first administrator without Google Cloud CLI, have them attempt Google sign-in once. On a trusted administrator machine, set `GOOGLE_APPLICATION_CREDENTIALS` to a Firebase Admin service-account JSON key stored outside the repository, set `GOOGLE_CLOUD_PROJECT=limkokwing-university`, then run `node src/backend/functions/scripts/set-admin-claim.js kabeloselomo313@gmail.com`. The script requires the Google account to exist in Firebase Authentication. Ask the administrator to sign out and sign in again so the new role is included in their token. Never put the key in the browser or repository; revoke it after use.
 7. Build and publish the web app with `npm run build` and `firebase deploy --only hosting`. The `admin.html` shortcut redirects into the existing staff workspace; it does not provide a separate login or bypass the custom-claim check.
 
 Cloud Functions deployment may require the Firebase project to use the Blaze billing plan. Review current Firebase pricing and enable billing only if required for your project.
@@ -30,6 +30,9 @@ Cloud Functions deployment may require the Firebase project to use the Blaze bil
 - Successful requests and enquiries navigate to a confirmation page showing the submission reference, service, submitter details, date, and description, with direct navigation back to services or home.
 - Public course catalogue and fee information for prospective students. The Fees page shows published service fees and directs visitors to the university for tuition amounts until an official course fee schedule is available.
 - Google-only sign-in. Student Google accounts must match a student record added by an administrator; admin roles require both a Firestore role document and a Firebase custom claim.
+- Administrators register students with name, student number, email, date/place of birth, phone, and address. The directory can be searched by name, email, or student number; students can edit contact details but not registrar-controlled identity fields.
+- Administrators can remove a student and their portal account, profile, requests, notifications, and draft letters through a protected Cloud Function.
+- Recommendation requests can be turned into auto-filled, editable draft letters. Sending the letter accepts the request in the same Firestore batch; students can download the letter PDF, visibly marked as a non-official sample.
 - Validated student request submission with live request history, profile management, and edit/delete controls for pending requests. Student numbers must contain nine digits and start with `90` (for example, `901019217`).
 - Student dashboard fee ledger that records service-fee snapshots against requests and shows outstanding charges. Administrators can update payment status.
 - Staff-only request and enquiry management, student enrollment, admin-role grants for existing Google accounts, and service-directory updates.
@@ -41,6 +44,7 @@ Cloud Functions deployment may require the Firebase project to use the Blaze bil
 Firestore does not support creating an empty collection on its own; a collection appears when its first document is written. The portal creates documents as people use it:
 
 - `studentDirectory` — Google email, name, and `90`-prefixed student number; created by an administrator before student sign-in.
+- `studentLetters` — generated draft letters, readable by the addressed student and administrators only.
 - `adminUsers` — admin-role email records, paired with Firebase custom claims.
 - `users` — profile documents are written after an approved Google sign-in or when a student saves their profile.
 - `serviceRequests` — created when a signed-in student submits a service request.

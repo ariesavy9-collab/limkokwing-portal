@@ -61,6 +61,54 @@ async function downloadRequestPdf(request) {
   pdf.save(`service-request-${request.id.slice(0, 10)}.pdf`);
 }
 
+async function downloadStudentLetterPdf(letter) {
+  const { jsPDF } = await import('jspdf');
+  const pdf = new jsPDF();
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  pdf.setTextColor(10, 34, 72);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(18);
+  pdf.text('LIMKOKWING UNIVERSITY', 18, 22);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+  pdf.text('Maseru Campus, Maseru, Lesotho', 18, 30);
+  pdf.setDrawColor(0, 85, 217);
+  pdf.line(18, 36, pageWidth - 18, 36);
+  pdf.setDrawColor(185, 35, 45);
+  pdf.setTextColor(185, 35, 45);
+  pdf.rect(pageWidth - 76, 43, 58, 12);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8);
+  pdf.text('SAMPLE - NOT OFFICIAL', pageWidth - 73, 51);
+  pdf.setTextColor(25, 35, 54);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(11);
+  pdf.text(`Date: ${letter.createdAt?.toDate?.().toLocaleDateString() || new Date().toLocaleDateString()}`, 18, 53);
+  pdf.text(`To: ${letter.studentName}`, 18, 68);
+  pdf.text(`Student number: ${letter.studentId}`, 18, 76);
+  pdf.text(`Email: ${letter.studentEmail}`, 18, 84);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(14);
+  const titleLines = pdf.splitTextToSize(letter.title, pageWidth - 36);
+  pdf.text(titleLines, 18, 101);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(11);
+  const bodyLines = pdf.splitTextToSize(letter.body, pageWidth - 36);
+  let y = 110 + (titleLines.length - 1) * 7;
+  bodyLines.forEach((line) => {
+    if (y > 270) {
+      pdf.addPage();
+      y = 24;
+    }
+    pdf.text(line, 18, y);
+    y += 6;
+  });
+  pdf.setFontSize(9);
+  pdf.setTextColor(185, 35, 45);
+  pdf.text('Draft sample only. Not an official university document.', 18, 286);
+  pdf.save(`draft-letter-${letter.studentId}-${letter.id.slice(0, 8)}.pdf`);
+}
+
 function ServiceCard({ service, navigate }) {
   return (
     <article className="service-card">
@@ -435,8 +483,10 @@ function getRequestFeeAmount(request) {
   return Number(fee.match(/[0-9]+(?:\.[0-9]+)?/)?.[0] || 0);
 }
 
-function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
+function StudentDashboard({ user, profile, profileError, onSaveProfile, onSubscribeToLetters, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
   const [requests, setRequests] = useState([]);
+  const [letters, setLetters] = useState([]);
+  const [letterError, setLetterError] = useState('');
   const [requestError, setRequestError] = useState('');
   const [filter, setFilter] = useState('All requests');
   const [profileOpen, setProfileOpen] = useState(!profile?.studentId);
@@ -457,7 +507,15 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
   }, [user]);
 
   useEffect(() => {
-    setProfileOpen(!profile?.studentId);
+    if (!user?.email || !onSubscribeToLetters) return undefined;
+    return onSubscribeToLetters(user.email, (items) => {
+      setLetters(items);
+      setLetterError('');
+    }, (error) => setLetterError(error.message || 'Letters could not be loaded.'));
+  }, [onSubscribeToLetters, user?.email]);
+
+  useEffect(() => {
+    if (!profile?.studentId) setProfileOpen(true);
   }, [profile?.studentId]);
 
   const visibleRequests = useMemo(() => (
@@ -477,6 +535,7 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
         name: values.get('profileName'),
         studentId: values.get('profileStudentId'),
         phone: values.get('profilePhone'),
+        address: values.get('profileAddress'),
       });
       setProfileOpen(false);
     } catch (error) {
@@ -540,17 +599,20 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
         eyebrow="YOUR STUDENT PORTAL"
         title={`Good to see you${profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.`}
         description="Manage your student information and keep an eye on your service requests."
-        action={<button className="button button-primary" onClick={() => navigate('/services')}>New request</button>}
+        action={<div className="dashboard-actions"><button className="button button-outline" type="button" onClick={() => setProfileOpen((open) => !open)}>{profileOpen ? 'Close profile' : 'Edit profile'}</button><button className="button button-primary" onClick={() => navigate('/services')}>New request</button></div>}
       />
-      {(profileError || requestError) && <p className="form-alert form-alert-error" role="alert">{profileError || requestError}</p>}
+      {(profileError || requestError || letterError) && <p className="form-alert form-alert-error" role="alert">{profileError || requestError || letterError}</p>}
 
       {profileOpen && (
         <form className="profile-panel" noValidate onSubmit={handleProfileSubmit} onChange={(event) => handleFormInput(event, setProfileValidationErrors)}>
-          <div><span className="eyebrow">ONE LAST STEP</span><h2>Complete your student profile</h2><p>Add your student ID so we can link requests to your university record.</p></div>
+          <div><span className="eyebrow">STUDENT PROFILE</span><h2>{profile?.studentId ? 'Your student details' : 'Complete your student profile'}</h2><p>Name, student number, and birth details are managed by the university.</p></div>
           <div className="profile-fields">
-            <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" defaultValue={profile?.name || user.displayName || ''} required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="profile-name" errors={profileValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" defaultValue={profile?.studentId || ''} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90, for example 901019217." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="profile-student-id" errors={profileValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" value={profile?.name || user.displayName || ''} readOnly required /></div>
+            <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" value={profile?.studentId || ''} readOnly required /></div>
+            <div className="form-field"><label htmlFor="profile-dob">Date of birth</label><input id="profile-dob" name="profileDateOfBirth" type="date" value={profile?.dateOfBirth || ''} readOnly /></div>
+            <div className="form-field"><label htmlFor="profile-birth-place">Place of birth</label><input id="profile-birth-place" name="profileBirthPlace" value={profile?.birthPlace || ''} readOnly /></div>
             <div className="form-field"><label htmlFor="profile-phone">Mobile number</label><input id="profile-phone" name="profilePhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." defaultValue={profile?.phone || user.phoneNumber || ''} required maxLength="16" /><FieldValidationError fieldId="profile-phone" errors={profileValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="profile-address">Home address</label><textarea id="profile-address" name="profileAddress" defaultValue={profile?.address || ''} minLength="5" maxLength="240" required rows="3" /><FieldValidationError fieldId="profile-address" errors={profileValidationErrors} /></div>
           </div>
           <ValidationErrors errors={profileValidationErrors} />
           {formError && <p className="form-alert form-alert-error" role="alert">{formError}</p>}
@@ -569,6 +631,16 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onCancel
         <div className="dashboard-section-heading"><div><span className="eyebrow">STUDENT ACCOUNT</span><h2 id="fees-owed-title">Outstanding service fees</h2></div><strong>M{outstandingTotal.toFixed(2)}</strong></div>
         <div className="fee-list">{unpaidRequests.map((request) => <div className="fee-row" key={request.id}><span>{request.service}</span><strong>M{getRequestFeeAmount(request).toFixed(2)}</strong><span className="fee-unpaid">Unpaid</span></div>)}</div>
       </section>}
+
+      <section className="student-letters" aria-labelledby="student-letters-title">
+        <div className="dashboard-section-heading"><div><span className="eyebrow">LETTERS</span><h2 id="student-letters-title">Letters from the university</h2></div></div>
+        {letters.length ? <div className="student-letter-list">{letters.map((letter) => (
+          <article className="student-letter-item" key={letter.id}>
+            <div><h3>{letter.title}</h3><span>{letter.createdAt?.toDate?.().toLocaleDateString() || 'Recently sent'} · SAMPLE - NOT OFFICIAL</span><p>{letter.body}</p></div>
+            <button className="button button-outline" type="button" onClick={() => downloadStudentLetterPdf(letter)}>Download letter PDF</button>
+          </article>
+        ))}</div> : <p className="form-intro">Letters sent by the university will appear here.</p>}
+      </section>
 
       <div className="dashboard-section-heading">
         <div><span className="eyebrow">REQUEST HISTORY</span><h2>Your service requests</h2></div>
@@ -692,6 +764,9 @@ function AdminDashboard({
   onCreateStudent,
   onGrantAdminAccess,
   onSetFeeStatus,
+  onSendLetterAndAcceptRequest,
+  onDeleteStudent,
+  adminEmail,
   initialSection = 'requests',
 }) {
   const [requests, setRequests] = useState([]);
@@ -709,24 +784,32 @@ function AdminDashboard({
   const [staffError, setStaffError] = useState('');
   const [staffMessage, setStaffMessage] = useState('');
   const [staffValidationErrors, setStaffValidationErrors] = useState([]);
+  const [letterRequestId, setLetterRequestId] = useState('');
+  const [letterTitle, setLetterTitle] = useState('');
+  const [letterBody, setLetterBody] = useState('');
+  const [letterValidationErrors, setLetterValidationErrors] = useState([]);
+  const [deletingStudentEmail, setDeletingStudentEmail] = useState('');
 
   useEffect(() => setSection(initialSection), [initialSection]);
 
   useEffect(() => {
     let requestReady = false;
     let inquiryReady = false;
+    let requestSubscription = () => {};
+    let inquirySubscription = () => {};
+    let studentSubscription = () => {};
     const onError = (failure) => setError(failure.message || 'Staff records could not be loaded.');
-    const requestSubscription = subscribeToAllStudentRequests((items) => {
+    requestSubscription = subscribeToAllStudentRequests((items) => {
       setRequests(items);
       requestReady = true;
       if (inquiryReady) setError('');
-    }, onError);
-    const inquirySubscription = subscribeToPublicInquiries((items) => {
+    }, onError) || (() => {});
+    inquirySubscription = subscribeToPublicInquiries((items) => {
       setInquiries(items);
       inquiryReady = true;
       if (requestReady) setError('');
-    }, onError);
-    const studentSubscription = subscribeToStudentRecords((items) => setStudents(items), onError);
+    }, onError) || (() => {});
+    studentSubscription = subscribeToStudentRecords((items) => setStudents(items), onError) || (() => {});
     return () => {
       requestSubscription();
       inquirySubscription();
@@ -740,6 +823,40 @@ function AdminDashboard({
   const filteredInquiries = useMemo(() => inquiries.filter((item) => (
     `${item.name} ${item.service} ${item.email} ${item.message}`.toLowerCase().includes(query.toLowerCase())
   )), [inquiries, query]);
+  const filteredStudents = useMemo(() => students.filter((student) => (
+    `${student.name} ${student.studentId} ${student.email}`.toLowerCase().includes(query.toLowerCase())
+  )), [query, students]);
+
+  const openLetterEditor = (request) => {
+    setLetterRequestId(request.id);
+    setLetterTitle(`${request.service} - ${request.studentName}`);
+    setLetterBody(`To whom it may concern,\n\nThis draft letter is prepared for ${request.studentName}, student number ${request.studentId}, in response to the ${request.service} request.\n\nPlease review and edit this text before sending. This generated draft is not an official university document.\n\nSincerely,\nStudent Affairs Office\nLimkokwing University of Creative Technology\nMaseru Campus, Maseru, Lesotho`);
+    setLetterValidationErrors([]);
+  };
+
+  const handleSendLetter = async (event, request) => {
+    event.preventDefault();
+    const errors = validateForm(event.currentTarget);
+    setLetterValidationErrors(errors);
+    if (errors.length) return;
+    setBusyId(request.id);
+    setError('');
+    try {
+      await onSendLetterAndAcceptRequest(request.id, {
+        studentEmail: request.email,
+        studentName: request.studentName,
+        studentId: request.studentId,
+        title: letterTitle,
+        body: letterBody,
+        createdBy: adminEmail,
+      });
+      setLetterRequestId('');
+    } catch (failure) {
+      setError(failure.message || 'The letter could not be sent and the request was not accepted.');
+    } finally {
+      setBusyId('');
+    }
+  };
 
   const updateStatus = async (id, status) => {
     setBusyId(id);
@@ -811,6 +928,10 @@ function AdminDashboard({
         name: values.get('studentName'),
         email: values.get('studentEmail'),
         studentId: values.get('studentId'),
+        dateOfBirth: values.get('studentDateOfBirth'),
+        birthPlace: values.get('studentBirthPlace'),
+        phone: values.get('studentPhone'),
+        address: values.get('studentAddress'),
       });
       form.reset();
       setStaffMessage('Student added to the database. They can now sign in with Google using this email address.');
@@ -854,6 +975,22 @@ function AdminDashboard({
     }
   };
 
+  const handleDeleteStudent = async (student) => {
+    const confirmed = window.confirm(
+      `Permanently remove ${student.name} (${student.studentId}) and their sign-in, profile, requests, notifications, and letters? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    setDeletingStudentEmail(student.email);
+    setError('');
+    try {
+      await onDeleteStudent(student.email);
+    } catch (failure) {
+      setError(failure.message || 'The student could not be removed.');
+    } finally {
+      setDeletingStudentEmail('');
+    }
+  };
+
   return (
     <section className="content-wrap dashboard-wrap">
       <PageHeading eyebrow="AUTHORIZED STAFF" title="Service management" description="Review incoming requests and enquiries, update progress, and keep students informed." />
@@ -862,12 +999,13 @@ function AdminDashboard({
           <button role="tab" aria-selected={section === 'requests'} className={section === 'requests' ? 'active' : ''} onClick={() => setSection('requests')}>Student requests <span>{requests.length}</span></button>
           <button role="tab" aria-selected={section === 'inquiries'} className={section === 'inquiries' ? 'active' : ''} onClick={() => setSection('inquiries')}>Public enquiries <span>{inquiries.length}</span></button>
           <button role="tab" aria-selected={section === 'services'} className={section === 'services' ? 'active' : ''} onClick={() => setSection('services')}>Services <span>{services.length}</span></button>
+          <button role="tab" aria-selected={section === 'students'} className={section === 'students' ? 'active' : ''} onClick={() => setSection('students')}>Students <span>{students.length}</span></button>
           <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => setSection('staff')}>Access & accounts</button>
         </div>
-        {['requests', 'inquiries'].includes(section) && <>
-          <label className="visually-hidden" htmlFor="staff-search">Search student and public records</label>
-          <input id="staff-search" className="staff-search" type="search" placeholder="Search records…" value={query} onChange={(event) => setQuery(event.target.value)} />
-        </>}
+        {['requests', 'inquiries', 'students'].includes(section) && <>
+            <label className="visually-hidden" htmlFor="staff-search">Search by student number, email, or name</label>
+            <input id="staff-search" className="staff-search" type="search" placeholder="Search name, email, or student number" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </>}
       </div>
       {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
       {section === 'requests' && <div className="staff-records">
@@ -875,10 +1013,20 @@ function AdminDashboard({
           <article className="staff-record" key={request.id}>
             <div className="staff-record-header"><div><h3>{request.service}</h3><span>{request.studentName} · {request.studentId}</span></div><StatusBadge status={request.status} /></div>
             <p>{request.description}</p>
+            {letterRequestId === request.id && <form className="request-form admin-letter-editor" noValidate onSubmit={(event) => handleSendLetter(event, request)} onChange={(event) => handleFormInput(event, setLetterValidationErrors)}>
+              <span className="eyebrow">GENERATED LETTER DRAFT</span>
+              <p className="form-intro">Student and request details are filled in automatically. Review the text before sending. The PDF will be marked SAMPLE - NOT OFFICIAL.</p>
+              <div className="form-field"><label htmlFor={`letter-title-${request.id}`}>Letter title</label><input id={`letter-title-${request.id}`} value={letterTitle} onChange={(event) => setLetterTitle(event.target.value)} required minLength="3" maxLength="120" /></div>
+              <div className="form-field"><label htmlFor={`letter-body-${request.id}`}>Letter text</label><textarea id={`letter-body-${request.id}`} value={letterBody} onChange={(event) => setLetterBody(event.target.value)} required minLength="20" maxLength="5000" rows="12" /></div>
+              <ValidationErrors errors={letterValidationErrors} />
+              <div className="detail-actions"><button className="button button-primary" type="submit" disabled={busyId === request.id}>{busyId === request.id ? 'Sending letter…' : 'Send letter & accept request'}</button><button className="button button-outline" type="button" onClick={() => setLetterRequestId('')}>Cancel</button></div>
+            </form>}
             <div className="staff-record-footer">
               <span>{request.email} · {request.date}</span>
               <div className="staff-record-actions">
-                {request.status === 'Pending' && <button className="button button-primary staff-accept" disabled={busyId === request.id} onClick={() => updateStatus(request.id, 'Accepted')}>{busyId === request.id ? 'Updating…' : 'Accept request'}</button>}
+                {request.status === 'Pending' && (request.serviceId === 'recommendation' || request.service?.toLowerCase().includes('letter')
+                  ? <button className="button button-primary staff-accept" disabled={busyId === request.id} onClick={() => openLetterEditor(request)}>Write & send letter</button>
+                  : <button className="button button-primary staff-accept" disabled={busyId === request.id} onClick={() => updateStatus(request.id, 'Accepted')}>{busyId === request.id ? 'Updating…' : 'Accept request'}</button>)}
                 <label className="visually-hidden" htmlFor={`status-${request.id}`}>Update status for {request.studentName}</label>
                 <select id={`status-${request.id}`} disabled={busyId === request.id} className="select-control" value={request.status} onChange={(event) => updateStatus(request.id, event.target.value)}>{REQUEST_STATUSES.filter((status) => status !== 'Cancelled' || request.status === status).map((status) => <option key={status}>{status}</option>)}</select>
                 {getRequestFeeAmount(request) > 0 && <>
@@ -904,6 +1052,19 @@ function AdminDashboard({
           </article>
         ))}
         {filteredInquiries.length === 0 && <div className="empty-state"><h2>{query ? 'No matching enquiries' : 'No public enquiries yet'}</h2><p>New public enquiries will appear here as they are received.</p></div>}
+      </div>}
+      {section === 'students' && <div className="student-directory-list">
+        {filteredStudents.length ? filteredStudents.map((student) => (
+          <article className="student-directory-record" key={student.email}>
+            <div className="student-directory-record-heading"><div><h2>{student.name}</h2><span>{student.studentId} · {student.email}</span></div><button className="button button-outline delete-link" type="button" disabled={deletingStudentEmail === student.email} onClick={() => handleDeleteStudent(student)}>{deletingStudentEmail === student.email ? 'Removing…' : 'Delete student'}</button></div>
+            <dl className="student-directory-details">
+              <div><dt>Date of birth</dt><dd>{student.dateOfBirth || 'Not recorded'}</dd></div>
+              <div><dt>Place of birth</dt><dd>{student.birthPlace || 'Not recorded'}</dd></div>
+              <div><dt>Contact</dt><dd>{student.phone || 'Not recorded'}</dd></div>
+              <div><dt>Address</dt><dd>{student.address || 'Not recorded'}</dd></div>
+            </dl>
+          </article>
+        )) : <div className="empty-state"><h2>{query ? 'No matching students' : 'No students registered'}</h2><p>{query ? 'Search by student number, email, or name.' : 'Add students from Access & accounts.'}</p></div>}
       </div>}
       {section === 'services' && <div className="admin-management-grid">
         <form className="request-form admin-create-form" noValidate onSubmit={handleCreateService} onChange={(event) => handleFormInput(event, setServiceValidationErrors)}>
@@ -938,10 +1099,14 @@ function AdminDashboard({
           <form className="request-form admin-account-form" noValidate onSubmit={handleCreateStudent} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
             <span className="eyebrow">STUDENT DIRECTORY</span>
             <h2>Add a student</h2>
-            <p className="form-intro">Register the student's Google email and university number before they sign in.</p>
-            <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="100" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
+            <p className="form-intro">Enter the student's verified identity and contact details before they sign in.</p>
+            <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
             <div className="form-field"><label htmlFor="student-email">Google account email</label><input id="student-email" name="studentEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="student-email" errors={staffValidationErrors} /></div>
             <div className="form-field"><label htmlFor="student-number">Student number</label><input id="student-number" name="studentId" inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="student-number" errors={staffValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="student-date-of-birth">Date of birth</label><input id="student-date-of-birth" name="studentDateOfBirth" type="date" required /></div>
+            <div className="form-field"><label htmlFor="student-birth-place">Place of birth</label><input id="student-birth-place" name="studentBirthPlace" required minLength="2" maxLength="100" /></div>
+            <div className="form-field"><label htmlFor="student-phone">Contact phone</label><input id="student-phone" name="studentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." required maxLength="16" /></div>
+            <div className="form-field"><label htmlFor="student-address">Home address</label><textarea id="student-address" name="studentAddress" required minLength="5" maxLength="240" rows="3" /></div>
             <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Adding student…' : 'Add student'}</button>
           </form>
           <form className="request-form admin-account-form" noValidate onSubmit={handleGrantAdmin} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
@@ -955,10 +1120,6 @@ function AdminDashboard({
         <ValidationErrors errors={staffValidationErrors} />
         {staffError && <p className="form-alert form-alert-error" role="alert">{staffError}</p>}
         {staffMessage && <p className="form-alert form-alert-success" role="status">{staffMessage}</p>}
-        <section className="student-directory-list" aria-labelledby="student-directory-heading">
-          <h2 id="student-directory-heading">Registered students</h2>
-          {students.length ? students.map((student) => <article className="admin-service-item" key={student.email}><div><strong>{student.name}</strong><span>{student.studentId} · {student.email}</span></div></article>) : <p className="form-intro">No student records have been added yet.</p>}
-        </section>
       </section>}
     </section>
   );

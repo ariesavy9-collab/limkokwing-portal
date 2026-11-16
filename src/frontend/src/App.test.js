@@ -193,6 +193,7 @@ jest.mock('./models/portalRepository', () => ({
   deleteRequest: jest.fn(),
   ensureUserProfile: jest.fn(),
   saveStudentProfile: jest.fn(),
+  sendStudentLetterAndAcceptRequest: jest.fn(),
   setInquiryStatus: jest.fn(),
   setRequestStatus: jest.fn(),
   setRequestFeeStatus: jest.fn(),
@@ -203,7 +204,7 @@ jest.mock('./models/portalRepository', () => ({
     callback([]);
     return () => {};
   },
-  subscribeToAllStudentRequests: (callback) => {
+  subscribeToAllStudentRequests: jest.fn((callback) => {
     callback([{
       id: 'request-1',
       service: 'Academic transcript',
@@ -218,9 +219,13 @@ jest.mock('./models/portalRepository', () => ({
       status: 'Pending',
     }]);
     return () => {};
-  },
+  }),
   subscribeToPublicInquiries: () => () => {},
-  subscribeToStudentRecords: (callback) => {
+  subscribeToStudentRecords: jest.fn((callback) => {
+    callback([]);
+    return () => {};
+  }),
+  subscribeToStudentLetters: (email, callback) => {
     callback([]);
     return () => {};
   },
@@ -566,9 +571,29 @@ test('requests page displays the current requests from its Firestore subscriptio
   expect(screen.getAllByText('Accepted').length).toBeGreaterThan(0);
   expect(screen.getAllByText('M100.00').length).toBeGreaterThan(0);
   expect(screen.getByRole('heading', { name: 'Outstanding service fees' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }));
+  expect(screen.getByLabelText('Full name')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Student number')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Date of birth')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Place of birth')).toHaveAttribute('readonly');
 });
 
 test('staff can accept a pending request', async () => {
+  const { subscribeToAllStudentRequests } = require('./models/portalRepository');
+  subscribeToAllStudentRequests.mockImplementation((callback) => {
+    callback([{
+      id: 'request-1',
+      serviceId: 'transcript',
+      service: 'Academic transcript',
+      studentName: 'Student Example',
+      studentId: '901019217',
+      email: 'student@example.com',
+      description: 'Please provide my official transcript.',
+      date: 'Today',
+      status: 'Pending',
+    }]);
+    return () => {};
+  });
   const onUpdateStatus = jest.fn().mockResolvedValue(undefined);
   render(
     <AdminDashboard
@@ -604,17 +629,105 @@ test('staff can add a student record and grant admin access to Google accounts',
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Student Example' } });
   fireEvent.change(document.querySelector('#student-email'), { target: { value: 'student@example.com' } });
   fireEvent.change(screen.getByLabelText('Student number'), { target: { value: '901019217' } });
+  fireEvent.change(screen.getByLabelText('Date of birth'), { target: { value: '2002-03-04' } });
+  fireEvent.change(screen.getByLabelText('Place of birth'), { target: { value: 'Maseru' } });
+  fireEvent.change(screen.getByLabelText('Contact phone'), { target: { value: '+26650123456' } });
+  fireEvent.change(screen.getByLabelText('Home address'), { target: { value: '12 Main Street, Maseru' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Add student' }).closest('form'));
 
   await waitFor(() => expect(onCreateStudent).toHaveBeenCalledWith({
     name: 'Student Example',
     email: 'student@example.com',
     studentId: '901019217',
+    dateOfBirth: '2002-03-04',
+    birthPlace: 'Maseru',
+    phone: '+26650123456',
+    address: '12 Main Street, Maseru',
   }));
 
   fireEvent.change(document.querySelector('#admin-email'), { target: { value: 'admin@example.com' } });
   fireEvent.submit(screen.getByRole('button', { name: /grant admin access/i }).closest('form'));
   await waitFor(() => expect(onGrantAdminAccess).toHaveBeenCalledWith('admin@example.com'));
+});
+
+test('admin sends an auto-filled letter and accepts the recommendation request', async () => {
+  const { subscribeToAllStudentRequests } = require('./models/portalRepository');
+  subscribeToAllStudentRequests.mockImplementationOnce((callback) => {
+    callback([{
+      id: 'recommendation-request',
+      serviceId: 'recommendation',
+      service: 'Letter of recommendation',
+      studentName: 'Student Example',
+      studentId: '901019217',
+      email: 'student@example.com',
+      description: 'Please prepare a letter for my scholarship application.',
+      date: 'Today',
+      status: 'Pending',
+    }]);
+    return () => {};
+  });
+  const onSendLetterAndAcceptRequest = jest.fn().mockResolvedValue('letter-1');
+  render(
+    <AdminDashboard
+      services={services}
+      onCreateService={jest.fn()}
+      onUpdateStatus={jest.fn()}
+      onDeleteRequest={jest.fn()}
+      onCreateStudent={jest.fn()}
+      onGrantAdminAccess={jest.fn()}
+      onSetFeeStatus={jest.fn()}
+      onSendLetterAndAcceptRequest={onSendLetterAndAcceptRequest}
+      adminEmail="admin@example.com"
+    />,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Write & send letter' }));
+  expect(screen.getByLabelText('Letter text').value).toContain('Student Example');
+  fireEvent.submit(screen.getByRole('button', { name: 'Send letter & accept request' }).closest('form'));
+
+  await waitFor(() => expect(onSendLetterAndAcceptRequest).toHaveBeenCalledWith('recommendation-request', expect.objectContaining({
+    studentEmail: 'student@example.com',
+    studentId: '901019217',
+    createdBy: 'admin@example.com',
+  })));
+});
+
+test('admin can remove a student from the searchable directory', async () => {
+  const { subscribeToStudentRecords } = require('./models/portalRepository');
+  subscribeToStudentRecords.mockImplementationOnce((callback) => {
+    callback([{
+      name: 'Student Example',
+      email: 'student@example.com',
+      studentId: '901019217',
+      dateOfBirth: '2002-03-04',
+      birthPlace: 'Maseru',
+      phone: '+26650123456',
+      address: '12 Main Street, Maseru',
+    }]);
+    return () => {};
+  });
+  const onDeleteStudent = jest.fn().mockResolvedValue(undefined);
+  const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  render(
+    <AdminDashboard
+      services={services}
+      onCreateService={jest.fn()}
+      onUpdateStatus={jest.fn()}
+      onDeleteRequest={jest.fn()}
+      onCreateStudent={jest.fn()}
+      onGrantAdminAccess={jest.fn()}
+      onSetFeeStatus={jest.fn()}
+      onSendLetterAndAcceptRequest={jest.fn()}
+      onDeleteStudent={onDeleteStudent}
+      adminEmail="admin@example.com"
+      initialSection="students"
+    />,
+  );
+
+  expect(screen.getByText('12 Main Street, Maseru')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Delete student' }));
+  await waitFor(() => expect(onDeleteStudent).toHaveBeenCalledWith('student@example.com'));
+  confirm.mockRestore();
 });
 
 test('a visitor can submit a public enquiry without signing in', () => {

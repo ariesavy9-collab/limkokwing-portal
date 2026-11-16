@@ -22,6 +22,18 @@ async function createNotification(eventId, notification) {
   }
 }
 
+async function deleteMatchingDocuments(query) {
+  let deleted = 0;
+  while (true) {
+    const snapshot = await query.limit(400).get();
+    if (snapshot.empty) return deleted;
+    const batch = db.batch();
+    snapshot.docs.forEach((item) => batch.delete(item.ref));
+    await batch.commit();
+    deleted += snapshot.size;
+  }
+}
+
 exports.notifyOnRequestCreated = onDocumentCreated({
   document: 'serviceRequests/{requestId}',
   region: 'us-central1',
@@ -163,4 +175,65 @@ exports.grantAdminAccess = onCall({ region: 'us-central1' }, async (request) => 
 
   logger.info('Admin access granted.', { uid: userRecord.uid });
   return { uid: userRecord.uid, email: userRecord.email };
+});
+
+exports.deleteStudentRecord = onCall({ region: 'us-central1' }, async (request) => {
+  const callerEmail = request.auth?.token?.email?.toLowerCase();
+  const callerRecord = callerEmail
+    ? await db.collection('adminUsers').doc(callerEmail).get()
+    : null;
+  if (request.auth?.token?.admin !== true || !callerRecord?.exists) {
+    throw new HttpsError('permission-denied', 'Only authorized university staff can remove students.');
+  }
+
+  const email = typeof request.data?.email === 'string' ? request.data.email.trim().toLowerCase() : '';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    throw new HttpsError('invalid-argument', 'Enter a valid student email address.');
+  }
+  if (email === callerEmail) {
+    throw new HttpsError('failed-precondition', 'You cannot remove your own administrator account.');
+  }
+
+  const directoryRef = db.collection('studentDirectory').doc(email);
+  const [directory, adminRecord] = await Promise.all([
+    directoryRef.get(),
+    db.collection('adminUsers').doc(email).get(),
+  ]);
+  if (!directory.exists) throw new HttpsError('not-found', 'The student record was not found.');
+  if (adminRecord.exists) throw new HttpsError('failed-precondition', 'This account has administrator access and cannot be removed as a student.');
+
+  let userRecord = null;
+  try {
+    userRecord = await auth.getUserByEmail(email);
+  } catch (error) {
+    if (error.code !== 'auth/user-not-found') {
+      logger.error('Could not look up the student account.', { code: error.code || 'unknown' });
+      throw new HttpsError('internal', 'The student account could not be checked. Please try again.');
+    }
+  }
+
+  try {
+    const cleanupQueries = [
+      db.collection('studentLetters').where('studentEmail', '==', email),
+    ];
+    if (userRecord) {
+      cleanupQueries.push(
+        db.collection('serviceRequests').where('ownerUid', '==', userRecord.uid),
+        db.collection('notifications').where('ownerUid', '==', userRecord.uid),
+      );
+    }
+    await Promise.all(cleanupQueries.map(deleteMatchingDocuments));
+    if (userRecord) await db.collection('users').doc(userRecord.uid).delete();
+    await directoryRef.delete();
+    if (userRecord) await auth.deleteUser(userRecord.uid);
+  } catch (error) {
+    logger.error('Could not fully remove the student record.', {
+      uid: userRecord?.uid || 'unlinked',
+      code: error.code || 'unknown',
+    });
+    throw new HttpsError('internal', 'The student record could not be fully removed. Please review the student database.');
+  }
+
+  logger.info('Student record removed.', { uid: userRecord?.uid || 'unlinked' });
+  return { email };
 });

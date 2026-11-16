@@ -25,6 +25,9 @@ export async function ensureUserProfile(user, initialDetails = {}) {
     name: PROFILE_NAME_PATTERN.test(submittedName) ? submittedName : 'Student',
     phone: initialDetails.phone || user.phoneNumber || '',
     studentId: initialDetails.studentId || '',
+    address: initialDetails.address || '',
+    ...(initialDetails.dateOfBirth ? { dateOfBirth: initialDetails.dateOfBirth } : {}),
+    ...(initialDetails.birthPlace ? { birthPlace: initialDetails.birthPlace } : {}),
     updatedAt: serverTimestamp(),
   };
 
@@ -33,8 +36,11 @@ export async function ensureUserProfile(user, initialDetails = {}) {
     const missingDetails = {
       updatedAt: details.updatedAt,
       ...(details.name && existingDetails.name !== details.name ? { name: details.name } : {}),
-      ...(details.phone && existingDetails.phone !== details.phone ? { phone: details.phone } : {}),
+      ...(!existingDetails.phone && details.phone ? { phone: details.phone } : {}),
       ...(details.studentId && existingDetails.studentId !== details.studentId ? { studentId: details.studentId } : {}),
+      ...(!existingDetails.address && details.address ? { address: details.address } : {}),
+      ...(details.dateOfBirth && existingDetails.dateOfBirth !== details.dateOfBirth ? { dateOfBirth: details.dateOfBirth } : {}),
+      ...(details.birthPlace && existingDetails.birthPlace !== details.birthPlace ? { birthPlace: details.birthPlace } : {}),
     };
     await setDoc(profileRef, missingDetails, { merge: true });
     return;
@@ -58,10 +64,8 @@ export function subscribeToStudentProfile(uid, onProfile, onError) {
 
 export async function saveStudentProfile(user, details) {
   await setDoc(doc(db, 'users', user.uid), {
-    name: details.name.trim(),
-    email: user.email?.trim().toLowerCase() || '',
-    studentId: details.studentId.trim(),
     phone: details.phone.trim(),
+    address: details.address.trim(),
     updatedAt: serverTimestamp(),
   }, { merge: true });
 }
@@ -122,6 +126,10 @@ export async function createStudentRecord(student) {
     name: student.name.trim(),
     email,
     studentId: student.studentId.trim(),
+    dateOfBirth: student.dateOfBirth,
+    birthPlace: student.birthPlace.trim(),
+    phone: student.phone.trim(),
+    address: student.address.trim(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -193,6 +201,42 @@ export function subscribeToServices(callback, onError) {
 
 export function subscribeToStudentRecords(callback, onError) {
   return watchCollection('studentDirectory', callback, onError);
+}
+
+export function subscribeToStudentLetters(email, callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'studentLetters'), where('studentEmail', '==', email.toLowerCase())),
+    (snapshot) => {
+      const letters = snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }))
+        .sort((first, second) => (
+          (second.createdAt?.toMillis?.() || 0) - (first.createdAt?.toMillis?.() || 0)
+        ));
+      callback(letters);
+    },
+    onError,
+  );
+}
+
+export async function sendStudentLetterAndAcceptRequest(requestId, letter) {
+  const letterRef = doc(collection(db, 'studentLetters'));
+  const batch = writeBatch(db);
+  batch.set(letterRef, {
+    studentEmail: letter.studentEmail.trim().toLowerCase(),
+    studentName: letter.studentName.trim(),
+    studentId: letter.studentId.trim(),
+    title: letter.title.trim(),
+    body: letter.body.trim(),
+    createdBy: letter.createdBy.trim().toLowerCase(),
+    status: 'Draft - not official',
+    createdAt: serverTimestamp(),
+  });
+  batch.update(doc(db, 'serviceRequests', requestId), {
+    status: 'Accepted',
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+  return letterRef.id;
 }
 
 export async function cancelStudentRequest(requestId) {
