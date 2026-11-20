@@ -3,7 +3,7 @@
   --ink: #e7edf4;
   --muted: #a4b2c1;
   --faint: #8293a5;
-  --paper: #0b1118;
+  --paper: #0a121a;
   --surface: #121b25;
   --line: #293746;
   --purple: #56c3e6;
@@ -1816,5 +1816,37 @@ body,
     gap: 5px;
     margin: 20px 0 60px;
     padding: 12px 0;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .service-grid > .service-card {
+    min-height: 230px;
+    margin-bottom: 18px;
+    padding: 22px;
+  }
+
+  .service-card h3 {
+    font-size: 20px;
+  }
+
+  .service-card p {
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  .service-meta {
+    margin-top: 16px;
+    font-size: 16px;
+  }
+
+  .service-meta > span:last-child {
+    font-size: 20px;
+  }
+
+  .service-link {
+    min-height: 56px;
+    padding: 0 20px;
+    font-size: 16px;
   }
 }
