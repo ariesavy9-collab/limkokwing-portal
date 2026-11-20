@@ -98,7 +98,7 @@ body { color: var(--ink); background: var(--paper); }
 .service-card h3 { margin: 10px 0 5px; color: #101828; font-size: 14px; font-weight: 700; }
 .service-card p { margin: 0; color: #667085; font-size: 11px; line-height: 1.45; }
 .service-meta { margin-top: 11px; color: #667085; font-size: 10px; }
-.service-meta > span:last-child { color: #0755d9; font-weight: 700; }
+.service-meta > span:last-child { color: #fff; font-weight: 700; }
 .service-link { min-height: 30px; padding: 0; color: #0755d9; background: transparent; font-size: 11px; }
 .service-link:hover { color: #0648b7; background: transparent; transform: none; }
 
