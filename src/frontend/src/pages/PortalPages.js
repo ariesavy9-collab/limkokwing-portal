@@ -12,7 +12,7 @@ import {
   subscribeToStudentRecords,
   subscribeToStudentRequests,
 } from '../models/portalRepository';
-import { courses, services as defaultServices } from '../models/services';
+import { services as defaultServices } from '../models/services';
 
 function PageHeading({ eyebrow, title, description, action }) {
   return (
@@ -759,6 +759,7 @@ function AdminDashboard({
   onSetFeeStatus,
   onSendLetterAndAcceptRequest,
   onDeleteStudent,
+  onUpdateStudent,
   adminEmail,
   initialSection = 'requests',
 }) {
@@ -777,13 +778,12 @@ function AdminDashboard({
   const [staffError, setStaffError] = useState('');
   const [staffMessage, setStaffMessage] = useState('');
   const [staffValidationErrors, setStaffValidationErrors] = useState([]);
-  const [studentFaculty, setStudentFaculty] = useState('');
-  const [studentCourse, setStudentCourse] = useState('');
   const [letterRequestId, setLetterRequestId] = useState('');
   const [letterTitle, setLetterTitle] = useState('');
   const [letterBody, setLetterBody] = useState('');
   const [letterValidationErrors, setLetterValidationErrors] = useState([]);
   const [deletingStudentEmail, setDeletingStudentEmail] = useState('');
+  const [editingStudentEmail, setEditingStudentEmail] = useState('');
 
   useEffect(() => setSection(initialSection), [initialSection]);
 
@@ -821,11 +821,6 @@ function AdminDashboard({
   const filteredStudents = useMemo(() => students.filter((student) => (
     `${student.name} ${student.studentId} ${student.email} ${student.faculty || ''} ${student.course || ''}`.toLowerCase().includes(query.toLowerCase())
   )), [query, students]);
-  const faculties = useMemo(() => [...new Set(courses.map((course) => course.faculty))], []);
-  const coursesForFaculty = studentFaculty
-    ? courses.filter((course) => course.faculty === studentFaculty)
-    : [];
-
   const openLetterEditor = (request) => {
     setLetterRequestId(request.id);
     setLetterTitle(`${request.service} - ${request.studentName}`);
@@ -935,11 +930,45 @@ function AdminDashboard({
         course: values.get('studentCourse'),
       });
       form.reset();
-      setStudentFaculty('');
-      setStudentCourse('');
       setStaffMessage('Student added to the database. They can now sign in with Google using this email address.');
     } catch (failure) {
       setStaffError(failure.message || 'The student could not be added.');
+    } finally {
+      setStaffBusy(false);
+    }
+  };
+
+  const openStudentEditor = (student) => {
+    setEditingStudentEmail(student.email);
+    setStaffValidationErrors([]);
+    setStaffError('');
+  };
+
+  const handleUpdateStudent = async (event, student) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const errors = validateForm(form);
+    setStaffValidationErrors(errors);
+    if (errors.length) return;
+    const values = new FormData(form);
+    setStaffBusy(true);
+    setStaffError('');
+    setStaffMessage('');
+    try {
+      await onUpdateStudent(student.email, {
+        name: values.get('editStudentName'),
+        studentId: values.get('editStudentId'),
+        dateOfBirth: values.get('editStudentDateOfBirth'),
+        birthPlace: values.get('editStudentBirthPlace'),
+        phone: values.get('editStudentPhone'),
+        address: values.get('editStudentAddress'),
+        faculty: values.get('editStudentFaculty'),
+        course: values.get('editStudentCourse'),
+      });
+      setEditingStudentEmail('');
+      setStaffMessage(`Details updated for ${student.name}.`);
+    } catch (failure) {
+      setStaffError(failure.message || 'The student details could not be updated.');
     } finally {
       setStaffBusy(false);
     }
@@ -1059,7 +1088,22 @@ function AdminDashboard({
       {section === 'students' && <div className="student-directory-list">
         {filteredStudents.length ? filteredStudents.map((student) => (
           <article className="student-directory-record" key={student.email}>
-            <div className="student-directory-record-heading"><div><h2>{student.name}</h2><span>{student.studentId} · {student.email}</span></div><button className="button button-outline delete-link" type="button" disabled={deletingStudentEmail === student.email} onClick={() => handleDeleteStudent(student)}>{deletingStudentEmail === student.email ? 'Removing…' : 'Delete student'}</button></div>
+            <div className="student-directory-record-heading"><div><h2>{student.name}</h2><span>{student.studentId} · {student.email}</span></div><div className="detail-actions"><button className="button button-outline" type="button" disabled={staffBusy || deletingStudentEmail === student.email} onClick={() => editingStudentEmail === student.email ? setEditingStudentEmail('') : openStudentEditor(student)}>{editingStudentEmail === student.email ? 'Cancel edit' : 'Edit details'}</button><button className="button button-outline delete-link" type="button" disabled={deletingStudentEmail === student.email || staffBusy} onClick={() => handleDeleteStudent(student)}>{deletingStudentEmail === student.email ? 'Removing…' : 'Delete student'}</button></div></div>
+            {editingStudentEmail === student.email && <form className="request-form student-edit-form" noValidate onSubmit={(event) => handleUpdateStudent(event, student)} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
+              <p className="form-intro">Update this student's university record. The sign-in email address cannot be changed here.</p>
+              <div className="profile-fields">
+                <div className="form-field"><label htmlFor={`edit-student-name-${student.studentId}`}>Full name</label><input id={`edit-student-name-${student.studentId}`} name="editStudentName" defaultValue={student.name} required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /></div>
+                <div className="form-field"><label htmlFor={`edit-student-id-${student.studentId}`}>Student number</label><input id={`edit-student-id-${student.studentId}`} name="editStudentId" defaultValue={student.studentId} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" /></div>
+                <div className="form-field"><label htmlFor={`edit-student-dob-${student.studentId}`}>Date of birth</label><input id={`edit-student-dob-${student.studentId}`} name="editStudentDateOfBirth" type="date" defaultValue={student.dateOfBirth || ''} required /></div>
+                <div className="form-field"><label htmlFor={`edit-student-birth-place-${student.studentId}`}>Place of birth</label><input id={`edit-student-birth-place-${student.studentId}`} name="editStudentBirthPlace" defaultValue={student.birthPlace || ''} required minLength="2" maxLength="100" /></div>
+                <div className="form-field"><label htmlFor={`edit-student-phone-${student.studentId}`}>Contact phone</label><input id={`edit-student-phone-${student.studentId}`} name="editStudentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." defaultValue={student.phone || ''} required maxLength="16" /></div>
+                <div className="form-field"><label htmlFor={`edit-student-address-${student.studentId}`}>Home address</label><textarea id={`edit-student-address-${student.studentId}`} name="editStudentAddress" defaultValue={student.address || ''} required minLength="5" maxLength="240" rows="3" /></div>
+                <div className="form-field"><label htmlFor={`edit-student-faculty-${student.studentId}`}>Faculty</label><input id={`edit-student-faculty-${student.studentId}`} name="editStudentFaculty" defaultValue={student.faculty || ''} required minLength="2" maxLength="120" /></div>
+                <div className="form-field"><label htmlFor={`edit-student-course-${student.studentId}`}>Course</label><input id={`edit-student-course-${student.studentId}`} name="editStudentCourse" defaultValue={student.course || ''} required minLength="2" maxLength="120" /></div>
+              </div>
+              <ValidationErrors errors={staffValidationErrors} />
+              <button className="button button-primary" type="submit" disabled={staffBusy}>{staffBusy ? 'Saving details…' : 'Save student details'}</button>
+            </form>}
             <dl className="student-directory-details">
               <div><dt>Date of birth</dt><dd>{student.dateOfBirth || 'Not recorded'}</dd></div>
               <div><dt>Place of birth</dt><dd>{student.birthPlace || 'Not recorded'}</dd></div>
@@ -1104,7 +1148,7 @@ function AdminDashboard({
           <form className="request-form admin-account-form" noValidate onSubmit={handleCreateStudent} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
             <span className="eyebrow">STUDENT DIRECTORY</span>
             <h2>Add a student</h2>
-            <p className="form-intro">Enter the student's verified identity and contact details before they sign in.</p>
+            <p className="form-intro">Enter the student's verified identity and contact details. Use faculty and programme names exactly as shown in current Lesotho campus records; the <a href="https://limkokwing.net/lesotho-home/" target="_blank" rel="noreferrer">public campus page</a> does not publish a current programme catalogue.</p>
             <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
             <div className="form-field"><label htmlFor="student-email">Google account email</label><input id="student-email" name="studentEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="student-email" errors={staffValidationErrors} /></div>
             <div className="form-field"><label htmlFor="student-number">Student number</label><input id="student-number" name="studentId" inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="student-number" errors={staffValidationErrors} /></div>
@@ -1112,8 +1156,8 @@ function AdminDashboard({
             <div className="form-field"><label htmlFor="student-birth-place">Place of birth</label><input id="student-birth-place" name="studentBirthPlace" required minLength="2" maxLength="100" /></div>
             <div className="form-field"><label htmlFor="student-phone">Contact phone</label><input id="student-phone" name="studentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." required maxLength="16" /></div>
             <div className="form-field"><label htmlFor="student-address">Home address</label><textarea id="student-address" name="studentAddress" required minLength="5" maxLength="240" rows="3" /></div>
-            <div className="form-field"><label htmlFor="student-faculty">Faculty</label><select id="student-faculty" name="studentFaculty" value={studentFaculty} onChange={(event) => { setStudentFaculty(event.target.value); setStudentCourse(''); }} required><option value="">Select a faculty</option>{faculties.map((faculty) => <option key={faculty}>{faculty}</option>)}</select><FieldValidationError fieldId="student-faculty" errors={staffValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="student-course">Course</label><select id="student-course" name="studentCourse" value={studentCourse} onChange={(event) => setStudentCourse(event.target.value)} required disabled={!studentFaculty}><option value="">Select a course</option>{coursesForFaculty.map((course) => <option key={course.id} value={course.name}>{course.name}</option>)}</select><FieldValidationError fieldId="student-course" errors={staffValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="student-faculty">Faculty</label><input id="student-faculty" name="studentFaculty" required minLength="2" maxLength="120" placeholder="Enter the official Lesotho campus faculty name" /><FieldValidationError fieldId="student-faculty" errors={staffValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="student-course">Course</label><input id="student-course" name="studentCourse" required minLength="2" maxLength="120" placeholder="Enter the official programme name" /><FieldValidationError fieldId="student-course" errors={staffValidationErrors} /></div>
             <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Adding student…' : 'Add student'}</button>
           </form>
           <form className="request-form admin-account-form" noValidate onSubmit={handleGrantAdmin} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>

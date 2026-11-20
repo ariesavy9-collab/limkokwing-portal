@@ -228,6 +228,7 @@ jest.mock('./models/portalRepository', () => ({
     callback(null);
     return () => {};
   }),
+  updateStudentRecord: jest.fn(),
   subscribeToStudentLetters: (email, callback) => {
     callback([]);
     return () => {};
@@ -754,6 +755,53 @@ test('admin can remove a student from the searchable directory', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Delete student' }));
   await waitFor(() => expect(onDeleteStudent).toHaveBeenCalledWith('student@example.com'));
   confirm.mockRestore();
+});
+
+test('admin can edit a student record and change the faculty and course assignment', async () => {
+  const { subscribeToStudentRecords } = require('./models/portalRepository');
+  subscribeToStudentRecords.mockImplementationOnce((callback) => {
+    callback([{
+      name: 'Student Example',
+      email: 'student@example.com',
+      studentId: '901019217',
+      dateOfBirth: '2002-03-04',
+      birthPlace: 'Maseru',
+      phone: '+26650123456',
+      address: '12 Main Street, Maseru',
+      faculty: 'Faculty of Information & Communication Technology',
+      course: 'Diploma in Information Technology',
+    }]);
+    return () => {};
+  });
+  const onUpdateStudent = jest.fn().mockResolvedValue(undefined);
+  render(
+    <AdminDashboard
+      services={services}
+      onCreateService={jest.fn()}
+      onUpdateStatus={jest.fn()}
+      onDeleteRequest={jest.fn()}
+      onCreateStudent={jest.fn()}
+      onGrantAdminAccess={jest.fn()}
+      onSetFeeStatus={jest.fn()}
+      onSendLetterAndAcceptRequest={jest.fn()}
+      onDeleteStudent={jest.fn()}
+      onUpdateStudent={onUpdateStudent}
+      adminEmail="admin@example.com"
+      initialSection="students"
+    />,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
+  fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Updated Student' } });
+  fireEvent.change(screen.getByLabelText('Faculty'), { target: { value: 'Faculty of Business Management and Globalisation' } });
+  fireEvent.change(screen.getByLabelText('Course'), { target: { value: 'Diploma in Marketing' } });
+  fireEvent.submit(screen.getByRole('button', { name: 'Save student details' }).closest('form'));
+
+  await waitFor(() => expect(onUpdateStudent).toHaveBeenCalledWith('student@example.com', expect.objectContaining({
+    name: 'Updated Student',
+    faculty: 'Faculty of Business Management and Globalisation',
+    course: 'Diploma in Marketing',
+  })));
 });
 
 test('a visitor can submit a public enquiry without signing in', () => {

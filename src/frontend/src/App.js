@@ -42,6 +42,7 @@ import {
   setRequestFeeStatus,
   setRequestStatus,
   sendStudentLetterAndAcceptRequest,
+  updateStudentRecord,
   updateStudentRequest,
 } from './models/portalRepository';
 import { grantAdminAccess, removeStudent } from './models/staffRepository';
@@ -287,6 +288,7 @@ function PortalApp() {
             onGrantAdminAccess={grantAdminAccess}
             onSetFeeStatus={setRequestFeeStatus}
             onDeleteStudent={removeStudent}
+            onUpdateStudent={updateStudentRecord}
             adminEmail={user.email}
             initialSection={staffSection}
           />

@@ -107,7 +107,7 @@ exports.notifyOnProfileCreated = onDocumentCreated({
     ownerUid: event.params.userId,
     type: 'profile',
     title: 'Student profile ready',
-    message: 'Your student profile is ready. You can update your details from the student dashboard.',
+    message: 'Your student profile is ready. You can view your details from the student dashboard; contact Student Affairs if anything needs correction.',
   });
 });
 
@@ -195,10 +195,19 @@ exports.deleteStudentRecord = onCall({ region: 'us-central1' }, async (request) 
   }
 
   const directoryRef = db.collection('studentDirectory').doc(email);
-  const [directory, adminRecord] = await Promise.all([
-    directoryRef.get(),
-    db.collection('adminUsers').doc(email).get(),
-  ]);
+  let directory;
+  let adminRecord;
+  try {
+    [directory, adminRecord] = await Promise.all([
+      directoryRef.get(),
+      db.collection('adminUsers').doc(email).get(),
+    ]);
+  } catch (error) {
+    logger.error('Could not verify the student record before removal.', {
+      code: error.code || 'unknown',
+    });
+    throw new HttpsError('internal', 'The student record could not be verified. Please try again.');
+  }
   if (!directory.exists) throw new HttpsError('not-found', 'The student record was not found.');
   if (adminRecord.exists) throw new HttpsError('failed-precondition', 'This account has administrator access and cannot be removed as a student.');
 
@@ -212,6 +221,7 @@ exports.deleteStudentRecord = onCall({ region: 'us-central1' }, async (request) 
     }
   }
 
+  let failureStage = 'related student records';
   try {
     const cleanupQueries = [
       db.collection('studentLetters').where('studentEmail', '==', email),
@@ -223,15 +233,28 @@ exports.deleteStudentRecord = onCall({ region: 'us-central1' }, async (request) 
       );
     }
     await Promise.all(cleanupQueries.map(deleteMatchingDocuments));
+    failureStage = 'student profile';
     if (userRecord) await db.collection('users').doc(userRecord.uid).delete();
+    failureStage = 'sign-in account';
+    if (userRecord) {
+      try {
+        await auth.deleteUser(userRecord.uid);
+      } catch (error) {
+        if (error.code !== 'auth/user-not-found') throw error;
+      }
+    }
+    failureStage = 'student directory';
     await directoryRef.delete();
-    if (userRecord) await auth.deleteUser(userRecord.uid);
   } catch (error) {
     logger.error('Could not fully remove the student record.', {
+      stage: failureStage,
       uid: userRecord?.uid || 'unlinked',
       code: error.code || 'unknown',
     });
-    throw new HttpsError('internal', 'The student record could not be fully removed. Please review the student database.');
+    throw new HttpsError(
+      'internal',
+      `Student deletion failed while removing ${failureStage}. Please retry. If the problem persists, contact support.`,
+    );
   }
 
   logger.info('Student record removed.', { uid: userRecord?.uid || 'unlinked' });

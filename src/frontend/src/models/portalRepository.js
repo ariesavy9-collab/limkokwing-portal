@@ -118,6 +118,21 @@ export async function createStudentRecord(student) {
   });
 }
 
+export async function updateStudentRecord(email, student) {
+  const normalizedEmail = email.trim().toLowerCase();
+  await updateDoc(doc(db, 'studentDirectory', normalizedEmail), {
+    name: student.name.trim(),
+    studentId: student.studentId.trim(),
+    dateOfBirth: student.dateOfBirth,
+    birthPlace: student.birthPlace.trim(),
+    phone: student.phone.trim(),
+    address: student.address.trim(),
+    faculty: student.faculty.trim(),
+    course: student.course.trim(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export function subscribeToStudentRecord(email, onRecord, onError) {
   return onSnapshot(
     doc(db, 'studentDirectory', email.trim().toLowerCase()),
