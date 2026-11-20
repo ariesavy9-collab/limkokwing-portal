@@ -21,6 +21,7 @@ async function grantInitialStaffAccess() {
   });
   await getFirestore().collection('adminUsers').doc(email).set({
     email,
+    uid: user.uid,
     name: user.displayName || email,
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });

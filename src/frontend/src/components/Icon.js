@@ -14,6 +14,11 @@ const paths = {
   support: <><path d="M12 22a10 10 0 1 0-10-10c0 2 1 4 2 5l-1 4 4-1c1 1 3 2 5 2z" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M5 21a7 7 0 0 1 14 0" /></>,
   university: <><path d="m3 10 9-7 9 7M5 10v10M9 10v10M15 10v10M19 10v10M3 20h18M2 23h20" /></>,
+  warning: <><path d="m10.3 3.9-8.1 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.8-3.1l-8.1-14a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" /></>,
+  chart: <><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-5 5" /><path d="M19 14V9h-5" /></>,
+  wallet: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 9h18M16 15h.01" /><path d="M3 5.5V4a2 2 0 0 1 2-2h13" /></>,
+  key: <><circle cx="8" cy="15" r="5" /><path d="m11.5 11.5 9-9M17 6l2 2M14 9l2 2" /></>,
+  eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
 };
 
 export const ICON_NAMES = Object.keys(paths);

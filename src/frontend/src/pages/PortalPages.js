@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Icon, { ICON_NAMES } from '../components/Icon';
+import useConfirmation from '../components/ConfirmationDialog';
 import ValidationErrors, { FieldValidationError } from '../components/ValidationErrors';
 import universityLogo from '../logo.png';
+import AdminFinancePage from './admin/AdminFinancePage';
 import AcademicOptionsPage from './admin/AcademicOptionsPage';
 import { handleFormInput, validateForm } from '../models/formValidation';
+import { getRequestFeeAmount } from '../models/fees';
 import {
   deleteInquiry,
   setInquiryStatus,
@@ -381,6 +384,7 @@ function ServiceDetailsPage({ service, navigate, onRequest }) {
 }
 
 function RequestPage({ service, user, profile, onStudentSubmit, onPublicSubmit, onSubmitted, navigate, onSignIn }) {
+  const confirm = useConfirmation();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
@@ -393,6 +397,12 @@ function RequestPage({ service, user, profile, onStudentSubmit, onPublicSubmit, 
     const errors = validateForm(form);
     setValidationErrors(errors);
     if (errors.length) return;
+    const confirmed = await confirm({
+      title: isStudentRequest ? 'Submit this service request?' : 'Send this enquiry?',
+      message: `Your ${isStudentRequest ? 'request for' : 'enquiry about'} ${service.name} will be sent to the university team.`,
+      confirmLabel: isStudentRequest ? 'Submit request' : 'Send enquiry',
+    });
+    if (!confirmed) return;
     setBusy(true);
     setError('');
     setSuccess('');
@@ -459,14 +469,14 @@ function RequestPage({ service, user, profile, onStudentSubmit, onPublicSubmit, 
 
           {user ? (
             <>
-              <div className="form-field"><label htmlFor="request-student-name">Full name</label><input id="request-student-name" name="studentName" defaultValue={profile?.name || user.displayName || ''} autoComplete="name" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="request-student-name" errors={validationErrors} /></div>
+              <div className="form-field"><label htmlFor="request-student-name">Full name</label><input id="request-student-name" name="studentName" defaultValue={profile?.name || user.displayName || ''} autoComplete="name" required minLength="2" maxLength="20" data-validation-type="name" /><FieldValidationError fieldId="request-student-name" errors={validationErrors} /></div>
               <div className="form-field"><label htmlFor="request-student-id">Student number</label><input id="request-student-id" name="studentId" defaultValue={profile?.studentId || ''} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90, for example 901019217." placeholder="e.g. 901019217" required maxLength="9" /><FieldValidationError fieldId="request-student-id" errors={validationErrors} /></div>
               <div className="form-field"><label htmlFor="request-email">University email</label><input id="request-email" type="email" name="email" autoComplete="email" defaultValue={user.email || ''} readOnly={Boolean(user.email)} required maxLength="254" /><FieldValidationError fieldId="request-email" errors={validationErrors} /></div>
               <div className="form-field"><label htmlFor="request-phone">Mobile number</label><input id="request-phone" name="phone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." autoComplete="tel" defaultValue={profile?.phone || user.phoneNumber || ''} required maxLength="16" /><FieldValidationError fieldId="request-phone" errors={validationErrors} /></div>
             </>
           ) : (
             <>
-              <div className="form-field"><label htmlFor="request-name">Your name</label><input id="request-name" name="name" autoComplete="name" placeholder="Full name" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="request-name" errors={validationErrors} /></div>
+              <div className="form-field"><label htmlFor="request-name">Your name</label><input id="request-name" name="name" autoComplete="name" placeholder="Full name" required minLength="2" maxLength="20" data-validation-type="name" /><FieldValidationError fieldId="request-name" errors={validationErrors} /></div>
               <div className="form-field"><label htmlFor="request-email">Email address</label><input id="request-email" type="email" name="email" autoComplete="email" placeholder="you@example.com" required maxLength="254" /><FieldValidationError fieldId="request-email" errors={validationErrors} /></div>
               <div className="form-field"><label htmlFor="request-phone">Mobile number</label><input id="request-phone" name="phone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." autoComplete="tel" placeholder="+266 5XXXXXXX" required maxLength="16" /><FieldValidationError fieldId="request-phone" errors={validationErrors} /></div>
             </>
@@ -501,13 +511,8 @@ function StatusBadge({ status }) {
   return <span className={`status-pill status-${status?.toLowerCase().replace(/\s+/g, '-') || 'pending'}`}>{status || 'Pending'}</span>;
 }
 
-function getRequestFeeAmount(request) {
-  if (Number.isFinite(request.feeAmount)) return request.feeAmount;
-  const fee = request.fee || defaultServices.find((service) => service.id === request.serviceId)?.fee || '';
-  return Number(fee.match(/[0-9]+(?:\.[0-9]+)?/)?.[0] || 0);
-}
-
 function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
+  const confirm = useConfirmation();
   const [requests, setRequests] = useState([]);
   const [letters, setLetters] = useState([]);
   const [studentRecord, setStudentRecord] = useState(null);
@@ -520,6 +525,7 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
   const [editingId, setEditingId] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [savingRequestId, setSavingRequestId] = useState('');
+  const [profileExpanded, setProfileExpanded] = useState(false);
 
   useEffect(() => {
     if (!user?.email) {
@@ -562,7 +568,14 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
   ), [filter, requests]);
 
   const handleCancel = async (requestId) => {
-    if (!window.confirm('Cancel this pending request?')) return;
+    const request = requests.find((item) => item.id === requestId);
+    const confirmed = await confirm({
+      title: 'Cancel this request?',
+      message: `The pending request for ${request?.service || 'this service'} will be cancelled.`,
+      confirmLabel: 'Cancel request',
+      destructive: true,
+    });
+    if (!confirmed) return;
     setCancellingId(requestId);
     try {
       await onCancelRequest(requestId);
@@ -579,6 +592,13 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
       setRequestError('Request details must be at least 10 characters.');
       return;
     }
+    const request = requests.find((item) => item.id === requestId);
+    const confirmed = await confirm({
+      title: 'Save request changes?',
+      message: `Your updated details for ${request?.service || 'this request'} will replace the current description.`,
+      confirmLabel: 'Save changes',
+    });
+    if (!confirmed) return;
     setSavingRequestId(requestId);
     setRequestError('');
     try {
@@ -592,7 +612,14 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
   };
 
   const handleDelete = async (requestId) => {
-    if (!window.confirm('Delete this pending request? This cannot be undone.')) return;
+    const request = requests.find((item) => item.id === requestId);
+    const confirmed = await confirm({
+      title: 'Delete this request?',
+      message: `The pending request for ${request?.service || 'this service'} will be permanently deleted. This cannot be undone.`,
+      confirmLabel: 'Delete request',
+      destructive: true,
+    });
+    if (!confirmed) return;
     setSavingRequestId(requestId);
     setRequestError('');
     try {
@@ -621,18 +648,39 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
       {(profileError || studentRecordError || requestError || letterError) && <p className="form-alert form-alert-error" role="alert">{profileError || studentRecordError || requestError || letterError}</p>}
 
       <section className="profile-panel" aria-labelledby="student-profile-heading">
-        <div><span className="eyebrow">STUDENT PROFILE</span><h2 id="student-profile-heading">Your student details</h2><p>Your university record is managed by the administration. Contact Student Affairs if any information needs correction.</p></div>
-        {!studentRecordLoaded && <p className="form-intro" role="status">Loading your university record…</p>}
-        <div className="profile-fields">
-          <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" value={studentDetails.name || user.displayName || ''} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-email">Email address</label><input id="profile-email" name="profileEmail" value={studentDetails.email || user.email || ''} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" value={studentDetails.studentId || ''} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-faculty">Faculty</label><input id="profile-faculty" name="profileFaculty" value={studentDetails.faculty || (studentRecordLoaded ? 'Not assigned' : 'Loading…')} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-course">Course</label><input id="profile-course" name="profileCourse" value={studentDetails.course || (studentRecordLoaded ? 'Not assigned' : 'Loading…')} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-dob">Date of birth</label><input id="profile-dob" name="profileDateOfBirth" type="date" value={studentDetails.dateOfBirth || ''} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-birth-place">Place of birth</label><input id="profile-birth-place" name="profileBirthPlace" value={studentDetails.birthPlace || ''} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-phone">Mobile number</label><input id="profile-phone" name="profilePhone" value={studentDetails.phone || ''} readOnly /></div>
-          <div className="form-field"><label htmlFor="profile-address">Home address</label><textarea id="profile-address" name="profileAddress" value={studentDetails.address || ''} readOnly rows="3" /></div>
+        <div className="profile-panel-heading">
+          <div><span className="eyebrow">STUDENT PROFILE</span><h2 id="student-profile-heading">Your student details</h2><p>Open your profile to view the university record associated with your account.</p></div>
+          <button
+            className="button button-outline profile-toggle"
+            type="button"
+            aria-expanded={profileExpanded}
+            aria-controls="student-profile-details"
+            onClick={() => setProfileExpanded((expanded) => !expanded)}
+          >
+            <Icon name={profileExpanded ? 'close' : 'eye'} size={17} />
+            {profileExpanded ? 'Hide profile' : 'View profile'}
+          </button>
+        </div>
+        <div className="profile-lock-note">
+          <Icon name="key" size={17} />
+          <span><strong>Locked university information</strong> These details are read-only. Contact Student Affairs to request a correction.</span>
+        </div>
+        <div id="student-profile-details" hidden={!profileExpanded}>
+          {profileExpanded && (
+            !studentRecordLoaded
+              ? <p className="form-intro" role="status">Loading your university record…</p>
+              : <div className="profile-fields">
+                <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" value={studentDetails.name || user.displayName || ''} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-email">Email address</label><input id="profile-email" name="profileEmail" value={studentDetails.email || user.email || ''} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" value={studentDetails.studentId || ''} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-faculty">Faculty</label><input id="profile-faculty" name="profileFaculty" value={studentDetails.faculty || 'Not assigned'} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-course">Course</label><input id="profile-course" name="profileCourse" value={studentDetails.course || 'Not assigned'} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-dob">Date of birth</label><input id="profile-dob" name="profileDateOfBirth" type="date" value={studentDetails.dateOfBirth || ''} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-birth-place">Place of birth</label><input id="profile-birth-place" name="profileBirthPlace" value={studentDetails.birthPlace || ''} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-phone">Mobile number</label><input id="profile-phone" name="profilePhone" value={studentDetails.phone || ''} readOnly /></div>
+                <div className="form-field"><label htmlFor="profile-address">Home address</label><textarea id="profile-address" name="profileAddress" value={studentDetails.address || ''} readOnly rows="3" /></div>
+              </div>
+          )}
         </div>
       </section>
 
@@ -702,10 +750,20 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
 }
 
 function NotificationsPage({ notifications, error, onMarkRead, onMarkAllRead }) {
+  const confirm = useConfirmation();
   const [actionError, setActionError] = useState('');
   const unreadCount = notifications.filter((notification) => !notification.read).length;
 
   const markRead = async (notificationId) => {
+    const notification = notifications.find((item) => item.id === notificationId);
+    const confirmed = await confirm({
+      title: 'Mark notification as read?',
+      message: notification?.title
+        ? `"${notification.title}" will be marked as read.`
+        : 'This notification will be marked as read.',
+      confirmLabel: 'Mark as read',
+    });
+    if (!confirmed) return;
     setActionError('');
     try {
       await onMarkRead(notificationId);
@@ -715,6 +773,12 @@ function NotificationsPage({ notifications, error, onMarkRead, onMarkAllRead }) 
   };
 
   const markAllRead = async () => {
+    const confirmed = await confirm({
+      title: 'Mark all notifications as read?',
+      message: `${unreadCount} unread ${unreadCount === 1 ? 'notification' : 'notifications'} will be marked as read.`,
+      confirmLabel: 'Mark all as read',
+    });
+    if (!confirmed) return;
     setActionError('');
     try {
       await onMarkAllRead();
@@ -789,6 +853,7 @@ function AdminDashboard({
   initialSection = 'requests',
   navigate,
 }) {
+  const confirm = useConfirmation();
   const [requests, setRequests] = useState([]);
   const [inquiries, setInquiries] = useState([]);
   const [students, setStudents] = useState([]);
@@ -902,6 +967,12 @@ function AdminDashboard({
     const errors = validateForm(event.currentTarget);
     setLetterValidationErrors(errors);
     if (errors.length) return;
+    const confirmed = await confirm({
+      title: 'Send this letter and accept the request?',
+      message: `The letter will be sent to ${request.studentName}, and their ${request.service} request will be accepted.`,
+      confirmLabel: 'Send letter',
+    });
+    if (!confirmed) return;
     setBusyId(request.id);
     setError('');
     try {
@@ -950,6 +1021,12 @@ function AdminDashboard({
       setAcademicError('That faculty is already in the list.');
       return;
     }
+    const confirmed = await confirm({
+      title: 'Add this faculty?',
+      message: `${faculty} will be available when staff add or edit student records.`,
+      confirmLabel: 'Add faculty',
+    });
+    if (!confirmed) return;
     const saved = await persistAcademicOptions({
       ...academicOptions,
       faculties: [...academicOptions.faculties, faculty].sort((first, second) => first.localeCompare(second)),
@@ -973,6 +1050,12 @@ function AdminDashboard({
       setAcademicError('That course is already listed for this faculty.');
       return;
     }
+    const confirmed = await confirm({
+      title: 'Add this course?',
+      message: `${name} will be available under ${faculty} when staff add or edit student records.`,
+      confirmLabel: 'Add course',
+    });
+    if (!confirmed) return;
     const saved = await persistAcademicOptions({
       ...academicOptions,
       courses: [...academicOptions.courses, { faculty, name }]
@@ -985,7 +1068,13 @@ function AdminDashboard({
   };
 
   const handleRemoveFaculty = async (faculty) => {
-    if (!window.confirm(`Remove "${faculty}" and its course choices from future student entries? Existing student records will remain unchanged.`)) return;
+    const confirmed = await confirm({
+      title: 'Remove this faculty?',
+      message: `"${faculty}" and its course choices will be removed from future student entries. Existing student records will remain unchanged.`,
+      confirmLabel: 'Remove faculty',
+      destructive: true,
+    });
+    if (!confirmed) return;
     const nextOptions = {
       faculties: academicOptions.faculties.filter((item) => item !== faculty),
       courses: academicOptions.courses.filter((course) => course.faculty !== faculty),
@@ -1001,7 +1090,13 @@ function AdminDashboard({
   };
 
   const handleRemoveCourse = async (course) => {
-    if (!window.confirm(`Remove "${course.name}" from future student entries? Existing student records will remain unchanged.`)) return;
+    const confirmed = await confirm({
+      title: 'Remove this course?',
+      message: `"${course.name}" will be removed from future student entries for ${course.faculty}. Existing student records will remain unchanged.`,
+      confirmLabel: 'Remove course',
+      destructive: true,
+    });
+    if (!confirmed) return;
     const nextOptions = {
       ...academicOptions,
       courses: academicOptions.courses.filter((item) => (
@@ -1012,6 +1107,15 @@ function AdminDashboard({
   };
 
   const updateStatus = async (id, status) => {
+    const request = requests.find((item) => item.id === id);
+    const inquiry = inquiries.find((item) => item.id === id);
+    const record = section === 'requests' ? request : inquiry;
+    const confirmed = await confirm({
+      title: 'Update record status?',
+      message: `The status for ${record?.studentName || record?.name || 'this record'} will change to ${status}.`,
+      confirmLabel: 'Update status',
+    });
+    if (!confirmed) return;
     setBusyId(id);
     setError('');
     try {
@@ -1025,7 +1129,18 @@ function AdminDashboard({
   };
 
   const removeRecord = async (id) => {
-    if (!window.confirm('Delete this record permanently? This action cannot be undone.')) return;
+    const request = requests.find((item) => item.id === id);
+    const inquiry = inquiries.find((item) => item.id === id);
+    const recordName = section === 'requests'
+      ? request?.studentName
+      : inquiry?.name;
+    const confirmed = await confirm({
+      title: 'Delete this record?',
+      message: `${recordName ? `${recordName}'s ` : 'This '}record will be permanently deleted. This action cannot be undone.`,
+      confirmLabel: 'Delete record',
+      destructive: true,
+    });
+    if (!confirmed) return;
     setBusyId(id);
     setError('');
     try {
@@ -1045,6 +1160,13 @@ function AdminDashboard({
     setServiceValidationErrors(errors);
     if (errors.length) return;
     const values = new FormData(form);
+    const serviceName = values.get('serviceName');
+    const confirmed = await confirm({
+      title: 'Add this service?',
+      message: `${serviceName} will be added to the service directory as ${values.get('serviceVisibility') === 'students' ? 'private to signed-in students' : 'public'}.`,
+      confirmLabel: 'Add service',
+    });
+    if (!confirmed) return;
     setServiceBusy(true);
     setServiceError('');
     setServiceMessage('');
@@ -1086,6 +1208,13 @@ function AdminDashboard({
       setStaffError('Choose a faculty and course from the current academic options.');
       return;
     }
+    const studentName = values.get('studentName');
+    const confirmed = await confirm({
+      title: 'Add this student record?',
+      message: `${studentName} will be added to the student directory with ${faculty} / ${course}.`,
+      confirmLabel: 'Add student',
+    });
+    if (!confirmed) return;
     setStaffBusy(true);
     setStaffError('');
     setStaffMessage('');
@@ -1136,6 +1265,13 @@ function AdminDashboard({
     setStaffValidationErrors(errors);
     if (errors.length) return;
     const values = new FormData(form);
+    const updatedName = values.get('editStudentName');
+    const confirmed = await confirm({
+      title: 'Save student record changes?',
+      message: `The university record for ${student.name} will be updated${updatedName !== student.name ? ` to ${updatedName}` : ''}.`,
+      confirmLabel: 'Save changes',
+    });
+    if (!confirmed) return;
     setStaffBusy(true);
     setStaffError('');
     setStaffMessage('');
@@ -1168,6 +1304,12 @@ function AdminDashboard({
     setStaffValidationErrors(errors);
     if (errors.length) return;
     const email = new FormData(form).get('adminEmail');
+    const confirmed = await confirm({
+      title: 'Grant administrator access?',
+      message: `${email} will be able to access the university administration tools.`,
+      confirmLabel: 'Grant access',
+    });
+    if (!confirmed) return;
     setStaffBusy(true);
     setStaffError('');
     setStaffMessage('');
@@ -1183,6 +1325,13 @@ function AdminDashboard({
   };
 
   const updateFeeStatus = async (requestId, feeStatus) => {
+    const request = requests.find((item) => item.id === requestId);
+    const confirmed = await confirm({
+      title: 'Update fee payment status?',
+      message: `The fee for ${request?.studentName || 'this student'}'s ${request?.service || 'request'} will be marked ${feeStatus.toLowerCase()}.`,
+      confirmLabel: 'Update fee status',
+    });
+    if (!confirmed) return;
     setBusyId(requestId);
     setError('');
     try {
@@ -1195,9 +1344,12 @@ function AdminDashboard({
   };
 
   const handleDeleteStudent = async (student) => {
-    const confirmed = window.confirm(
-      `Permanently remove ${student.name} (${student.studentId}) and their sign-in, profile, requests, notifications, and letters? This cannot be undone.`,
-    );
+    const confirmed = await confirm({
+      title: 'Permanently remove this student?',
+      message: `${student.name} (${student.studentId}), their sign-in, profile, requests, notifications, and letters will be permanently removed. This cannot be undone.`,
+      confirmLabel: 'Remove student',
+      destructive: true,
+    });
     if (!confirmed) return;
     setDeletingStudentEmail(student.email);
     setError('');
@@ -1214,6 +1366,7 @@ function AdminDashboard({
     requests: { title: 'Request queue', description: 'Review incoming student requests and update their progress.' },
     inquiries: { title: 'Public enquiries', description: 'Respond to messages from students, applicants, and visitors.' },
     students: { title: 'Student directory', description: 'Find, update, and manage approved student records.' },
+    finance: { title: 'Finance & fees', description: 'Track outstanding student fees, collected amounts, and payment status.' },
     services: { title: 'Service setup', description: 'Control service visibility and configure the public directory.' },
     staff: { title: 'Staff access', description: 'Add student records and manage authorized staff access.' },
     academics: { title: 'Academic options', description: 'Manage faculty and course choices for student records.' },
@@ -1230,6 +1383,7 @@ function AdminDashboard({
         <div className="staff-tabs" role="tablist" aria-label="Staff record type">
           <button role="tab" aria-selected={section === 'requests'} className={section === 'requests' ? 'active' : ''} onClick={() => changeSection('requests')}><Icon name="document" size={16} />Request queue <span>{requests.length}</span></button>
           <button role="tab" aria-selected={section === 'inquiries'} className={section === 'inquiries' ? 'active' : ''} onClick={() => changeSection('inquiries')}><Icon name="message" size={16} />Public enquiries <span>{inquiries.length}</span></button>
+          <button role="tab" aria-selected={section === 'finance'} className={section === 'finance' ? 'active' : ''} onClick={() => changeSection('finance')}><Icon name="chart" size={16} />Finance & fees</button>
           <button role="tab" aria-selected={section === 'services'} className={section === 'services' ? 'active' : ''} onClick={() => changeSection('services')}><Icon name="grid" size={16} />Service setup <span>{services.length}</span></button>
           <button role="tab" aria-selected={section === 'students'} className={section === 'students' ? 'active' : ''} onClick={() => changeSection('students')}><Icon name="id" size={16} />Student directory <span>{students.length}</span></button>
           <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => changeSection('staff')}><Icon name="shield" size={16} />Staff access</button>
@@ -1244,6 +1398,7 @@ function AdminDashboard({
           </>}
       </div>
       {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
+      {section === 'finance' && <AdminFinancePage requests={requests} />}
       {section === 'requests' && <div className="staff-records">
         {filteredRequests.map((request) => (
           <article className="staff-record" key={request.id}>
@@ -1335,7 +1490,7 @@ function AdminDashboard({
                     {editingStudentEmail === student.email && <form className="request-form student-edit-form" noValidate onSubmit={(event) => handleUpdateStudent(event, student)} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
                       <p className="form-intro">Update this student's university record. The sign-in email address cannot be changed here.</p>
                       <div className="profile-fields">
-                        <div className="form-field"><label htmlFor={`edit-student-name-${student.studentId}`}>Full name</label><input id={`edit-student-name-${student.studentId}`} name="editStudentName" defaultValue={student.name} required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /></div>
+                        <div className="form-field"><label htmlFor={`edit-student-name-${student.studentId}`}>Full name</label><input id={`edit-student-name-${student.studentId}`} name="editStudentName" defaultValue={student.name} required minLength="2" maxLength="20" data-validation-type="name" /></div>
                         <div className="form-field"><label htmlFor={`edit-student-id-${student.studentId}`}>Student number</label><input id={`edit-student-id-${student.studentId}`} name="editStudentId" defaultValue={student.studentId} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" /></div>
                         <div className="form-field"><label htmlFor={`edit-student-dob-${student.studentId}`}>Date of birth</label><input id={`edit-student-dob-${student.studentId}`} name="editStudentDateOfBirth" type="date" defaultValue={student.dateOfBirth || ''} required /></div>
                         <div className="form-field"><label htmlFor={`edit-student-birth-place-${student.studentId}`}>Place of birth</label><input id={`edit-student-birth-place-${student.studentId}`} name="editStudentBirthPlace" defaultValue={student.birthPlace || ''} required minLength="2" maxLength="100" /></div>
@@ -1431,7 +1586,7 @@ function AdminDashboard({
             </div>
             <fieldset className="student-form-step" data-student-step="0" hidden={newStudentStep !== 0}>
               <legend>Student identity</legend>
-              <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
+              <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="20" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
               <div className="form-field"><label htmlFor="student-email">Google account email</label><input id="student-email" name="studentEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="student-email" errors={staffValidationErrors} /></div>
               <div className="form-field"><label htmlFor="student-number">Student number</label><input id="student-number" name="studentId" inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="student-number" errors={staffValidationErrors} /></div>
             </fieldset>
@@ -1492,6 +1647,7 @@ function AdminDashboard({
 }
 
 function ContactPage({ onSubmit }) {
+  const confirm = useConfirmation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -1504,6 +1660,12 @@ function ContactPage({ onSubmit }) {
     setValidationErrors(errors);
     if (errors.length) return;
     const values = new FormData(form);
+    const confirmed = await confirm({
+      title: 'Send this enquiry?',
+      message: 'Your message will be sent to the university team so they can respond to you.',
+      confirmLabel: 'Send enquiry',
+    });
+    if (!confirmed) return;
     setBusy(true);
     setError('');
     setSuccess('');
@@ -1537,7 +1699,7 @@ function ContactPage({ onSubmit }) {
         <span className="eyebrow">SEND A MESSAGE</span>
         <h2>Send a general enquiry</h2>
         <p className="form-intro">Your message will be sent to the university team and a reference will be shown when it is received.</p>
-        <div className="form-field"><label htmlFor="contact-name">Your name</label><input id="contact-name" name="contactName" autoComplete="name" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="contact-name" errors={validationErrors} /></div>
+        <div className="form-field"><label htmlFor="contact-name">Your name</label><input id="contact-name" name="contactName" autoComplete="name" required minLength="2" maxLength="20" data-validation-type="name" /><FieldValidationError fieldId="contact-name" errors={validationErrors} /></div>
         <div className="form-field"><label htmlFor="contact-email">Email address</label><input id="contact-email" name="contactEmail" type="email" autoComplete="email" required maxLength="254" /><FieldValidationError fieldId="contact-email" errors={validationErrors} /></div>
         <div className="form-field"><label htmlFor="contact-phone">Mobile number</label><input id="contact-phone" name="contactPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." autoComplete="tel" required maxLength="16" /><FieldValidationError fieldId="contact-phone" errors={validationErrors} /></div>
         <div className="form-field"><label htmlFor="contact-message">Your message</label><textarea id="contact-message" name="contactMessage" rows="5" minLength="10" maxLength="1500" required /><FieldValidationError fieldId="contact-message" errors={validationErrors} /></div>

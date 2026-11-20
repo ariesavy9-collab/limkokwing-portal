@@ -17,7 +17,7 @@ The app uses the Limkokwing Firebase project configured in `src/frontend/src/mod
 2. Add the local and deployed host names to Authentication → Settings → Authorized domains.
 3. The default Firestore database is already present in the configured project. Ensure the Authentication providers and authorized domains above are configured before testing sign-in.
 4. The repository is linked to the `limkokwing-university` Firebase project. To publish the Firestore rules, run `firebase deploy --only firestore:rules` after reviewing the rules and confirming the target project.
-5. After installing dependencies at the repository root, deploy the protected admin-access function using `firebase deploy --only functions`.
+5. After installing dependencies at the repository root, deploy the protected admin-access and request-notification functions using `firebase deploy --only functions`.
 6. To bootstrap the first administrator without Google Cloud CLI, have them attempt Google sign-in once. On a trusted administrator machine, set `GOOGLE_APPLICATION_CREDENTIALS` to a Firebase Admin service-account JSON key stored outside the repository, set `GOOGLE_CLOUD_PROJECT=limkokwing-university`, then run `node src/backend/functions/scripts/set-admin-claim.js kabeloselomo313@gmail.com`. The script requires the Google account to exist in Firebase Authentication. Ask the administrator to sign out and sign in again so the new role is included in their token. Never put the key in the browser or repository; revoke it after use.
 7. Build and publish the web app with `npm run build` and `firebase deploy --only hosting`. The `admin.html` shortcut redirects into the existing staff workspace; it does not provide a separate login or bypass the custom-claim check.
 
@@ -32,6 +32,7 @@ Cloud Functions deployment may require the Firebase project to use the Blaze bil
 - Google-only sign-in. Student Google accounts must match a student record added by an administrator; admin roles require both a Firestore role document and a Firebase custom claim.
 - Administrators register and edit students' name, student number, date/place of birth, phone, address, faculty, and course. Faculty and course are entered against current Lesotho campus records rather than an unverified preset list. A student's sign-in email remains fixed to their Google account. The directory can be searched by name, email, student number, faculty, or course; students can view their full record but cannot edit it.
 - Administrators can remove a student and their portal account, profile, requests, notifications, and draft letters through a protected Cloud Function.
+- In-app notifications are sent to administrators when a student submits a request and to students when their request is accepted, rejected, or otherwise updated. Unread counts update in the signed-in portal.
 - Recommendation requests can be turned into auto-filled, editable draft letters. Sending the letter accepts the request in the same Firestore batch; students can download the letter PDF, visibly marked as a non-official sample.
 - Validated student request submission with live request history and edit/delete controls for pending requests. Student profile details are read-only and managed by the university. Student numbers must contain nine digits and start with `90` (for example, `901019217`).
 - Student dashboard fee ledger that records service-fee snapshots against requests and shows outstanding charges. Administrators can update payment status.
@@ -50,6 +51,7 @@ Firestore does not support creating an empty collection on its own; a collection
 - `serviceRequests` — created when a signed-in student submits a service request.
 - `publicInquiries` — created when a visitor submits a public enquiry.
 - `services` — created when authorized staff add a custom service.
+- `notifications` — created by Cloud Functions for request submissions and status changes; each signed-in user can read and mark only their own notifications as read.
 
 The contact page also submits general enquiries to `publicInquiries`; successful submissions display their Firestore document reference.
 

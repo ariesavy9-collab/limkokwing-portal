@@ -12,13 +12,30 @@ const db = getFirestore();
 
 async function createNotification(eventId, notification) {
   try {
-    await db.collection('notifications').doc(eventId).create({
+    await db.collection('notifications').doc(`${eventId}-${notification.ownerUid}`).create({
       ...notification,
       read: false,
       createdAt: FieldValue.serverTimestamp(),
     });
   } catch (error) {
     if (error.code !== 6 && error.code !== 'already-exists') throw error;
+  }
+}
+
+async function getAdminUid(adminDocument) {
+  const record = adminDocument.data();
+  if (typeof record.uid === 'string' && record.uid) return record.uid;
+
+  const email = (typeof record.email === 'string' ? record.email : adminDocument.id).trim().toLowerCase();
+  try {
+    const user = await auth.getUserByEmail(email);
+    return user.uid;
+  } catch (error) {
+    if (error.code === 'auth/user-not-found') {
+      logger.warn('Admin notification skipped because the account was not found.', { email });
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -48,6 +65,16 @@ exports.notifyOnRequestCreated = onDocumentCreated({
     title: 'Request submitted',
     message: `Your request for ${request.service || 'a university service'} was submitted and is pending review.`,
   });
+
+  const administrators = await db.collection('adminUsers').get();
+  const adminUids = await Promise.all(administrators.docs.map(getAdminUid));
+  await Promise.all(adminUids.filter(Boolean).map((uid) => createNotification(event.id, {
+    ownerUid: uid,
+    type: 'request',
+    requestId: event.params.requestId,
+    title: 'New student application',
+    message: `${request.studentName || 'A student'} submitted a request for ${request.service || 'a university service'}.`,
+  })));
 });
 
 exports.notifyOnRequestStatusChanged = onDocumentUpdated({
@@ -158,6 +185,7 @@ exports.grantAdminAccess = onCall({ region: 'us-central1' }, async (request) => 
   try {
     await db.collection('adminUsers').doc(email).set({
       email,
+      uid: userRecord.uid,
       name: userRecord.displayName || email,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });

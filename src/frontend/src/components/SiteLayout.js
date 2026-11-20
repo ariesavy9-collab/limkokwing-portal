@@ -67,6 +67,7 @@ function SiteLayout({
       links: [
         { label: 'Request queue', path: '/staff?view=requests', section: 'requests', icon: 'document' },
         { label: 'Public enquiries', path: '/staff?view=inquiries', section: 'inquiries', icon: 'message' },
+        { label: 'Finance & fees', path: '/staff?view=finance', section: 'finance', icon: 'chart' },
         { label: 'Student directory', path: '/staff?view=students', section: 'students', icon: 'id' },
         { label: 'Service setup', path: '/staff?view=services', section: 'services', icon: 'grid' },
         { label: 'Staff access', path: '/staff?view=staff', section: 'staff', icon: 'shield' },
@@ -85,6 +86,7 @@ function SiteLayout({
     '/staff': {
       requests: 'Request queue',
       inquiries: 'Public enquiries',
+      finance: 'Finance & fees',
       students: 'Student directory',
       services: 'Service setup',
       staff: 'Staff access',

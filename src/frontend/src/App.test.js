@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
+import { ConfirmationProvider } from './components/ConfirmationDialog';
 import SiteLayout from './components/SiteLayout';
 import {
   AdminDashboard,
@@ -14,6 +15,7 @@ import {
   StudentDashboard,
   SubmissionConfirmationPage,
 } from './pages/PortalPages';
+import AdminFinancePage from './pages/admin/AdminFinancePage';
 import { services } from './models/services';
 import { validateForm } from './models/formValidation';
 
@@ -135,6 +137,7 @@ test('admin navigation hides public university links and help content', () => {
   expect(adminNavigation).toBeInTheDocument();
   expect(within(adminNavigation).getByRole('link', { name: /request queue/i })).toBeInTheDocument();
   expect(within(adminNavigation).getByRole('link', { name: 'Academic options' })).toBeInTheDocument();
+  expect(within(adminNavigation).getByRole('link', { name: 'Finance & fees' })).toBeInTheDocument();
   expect(screen.queryByRole('navigation', { name: 'University information' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Public services' })).not.toBeInTheDocument();
@@ -142,6 +145,50 @@ test('admin navigation hides public university links and help content', () => {
   expect(screen.queryByRole('link', { name: 'Tuition & fees' })).not.toBeInTheDocument();
   expect(screen.queryByText('Need assistance?')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Help' })).not.toBeInTheDocument();
+});
+
+test('admin finance view totals paid and outstanding fees by student', () => {
+  render(
+    <AdminFinancePage
+      requests={[
+        {
+          id: 'paid-request',
+          studentName: 'Paid Student',
+          studentId: '901019218',
+          email: 'paid@example.com',
+          service: 'Transcript',
+          feeAmount: 50,
+          feeStatus: 'Paid',
+        },
+        {
+          id: 'unpaid-request-one',
+          studentName: 'Student Owing',
+          studentId: '901019217',
+          email: 'owing@example.com',
+          service: 'Registration',
+          feeAmount: 100,
+          feeStatus: 'Unpaid',
+        },
+        {
+          id: 'unpaid-request-two',
+          studentName: 'Student Owing',
+          studentId: '901019217',
+          email: 'owing@example.com',
+          service: 'Transcript',
+          feeAmount: 50,
+          feeStatus: 'Unpaid',
+        },
+      ]}
+    />,
+  );
+
+  expect(screen.getByText('Total outstanding').parentElement).toHaveTextContent('M150.00');
+  expect(screen.getByText('Total collected').parentElement).toHaveTextContent('M50.00');
+  expect(screen.getByText('Students owing').parentElement).toHaveTextContent('1');
+  expect(screen.getByRole('img', { name: /M50.00 paid, M150.00 outstanding/i })).toBeInTheDocument();
+  const owingRow = screen.getByText('Student Owing').closest('tr');
+  expect(within(owingRow).getByText('M150.00')).toBeInTheDocument();
+  expect(within(owingRow).getByText('Registration, Transcript')).toBeInTheDocument();
 });
 
 test('contact form blocks digits in names and letters in phone numbers', async () => {
@@ -162,6 +209,32 @@ test('contact form blocks digits in names and letters in phone numbers', async (
 
   fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '+26650123456' } });
   fireEvent.submit(screen.getByRole('button', { name: /send enquiry/i }).closest('form'));
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+});
+
+test('contact enquiry waits for an in-app confirmation before sending', async () => {
+  const onSubmit = jest.fn().mockResolvedValue('enquiry-reference-789');
+  render(
+    <ConfirmationProvider>
+      <ContactPage onSubmit={onSubmit} />
+    </ConfirmationProvider>,
+  );
+
+  fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Visitor Name' } });
+  fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'visitor@example.com' } });
+  fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '+26650123456' } });
+  fireEvent.change(screen.getByLabelText('Your message'), { target: { value: 'Please help me with a university service.' } });
+  const form = screen.getByRole('button', { name: /send enquiry/i }).closest('form');
+
+  fireEvent.submit(form);
+  expect(screen.getByRole('alertdialog')).toHaveTextContent('Your message will be sent to the university team');
+  expect(onSubmit).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+  expect(onSubmit).not.toHaveBeenCalled();
+
+  fireEvent.submit(form);
+  fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Send enquiry' }));
   await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
 });
 
@@ -466,6 +539,7 @@ test('request submission routes to a confirmation page with the submitted detail
   fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '+26651234567' } });
   fireEvent.change(screen.getByLabelText('Your message'), { target: { value: 'Please help me with a general university enquiry.' } });
   fireEvent.submit(screen.getByRole('button', { name: /send enquiry/i }).closest('form'));
+  fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Send enquiry' }));
 
   expect(await screen.findByRole('heading', { name: 'Submission received' })).toBeInTheDocument();
   expect(screen.getByText('inquiry-reference-456')).toBeInTheDocument();
@@ -650,6 +724,10 @@ test('student dashboard displays student details as read-only and shows academic
   expect(screen.getAllByText('Accepted').length).toBeGreaterThan(0);
   expect(screen.getAllByText('M100.00').length).toBeGreaterThan(0);
   expect(screen.getByRole('heading', { name: 'Outstanding service fees' })).toBeInTheDocument();
+  expect(screen.queryByLabelText('Faculty')).not.toBeInTheDocument();
+  expect(screen.getByText('Locked university information')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'View profile' }));
+  expect(screen.getByRole('button', { name: 'Hide profile' })).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByLabelText('Faculty')).toHaveValue('Faculty of Information & Communication Technology');
   expect(screen.getByLabelText('Course')).toHaveValue('Diploma in Information Technology');
   expect(screen.queryByRole('button', { name: 'Edit profile' })).not.toBeInTheDocument();

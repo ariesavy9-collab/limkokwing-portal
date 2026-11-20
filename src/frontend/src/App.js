@@ -9,6 +9,7 @@ import {
   useParams,
 } from 'react-router-dom';
 import AuthDialog from './components/AuthDialog';
+import useConfirmation, { ConfirmationProvider } from './components/ConfirmationDialog';
 import SiteLayout from './components/SiteLayout';
 import {
   AdminDashboard,
@@ -124,6 +125,7 @@ function RequestRoute({ services, user, profile, navigate, requireStudent, openS
 }
 
 function PortalApp() {
+  const confirm = useConfirmation();
   const { user, profile, isAdmin, loading, authError, isOnline } = useAuth();
   const { services, error: servicesError } = useServices();
   const location = useLocation();
@@ -132,7 +134,7 @@ function PortalApp() {
   const requestedStaffSection = new URLSearchParams(location.search).get('view');
   const staffSection = requestedStaffSection === 'accounts'
     ? 'staff'
-    : ['requests', 'inquiries', 'students', 'services', 'staff', 'academics'].includes(requestedStaffSection)
+    : ['requests', 'inquiries', 'students', 'finance', 'services', 'staff', 'academics'].includes(requestedStaffSection)
       ? requestedStaffSection
       : 'requests';
   const requestRoute = path.match(/^\/request\/([^/]+)$/);
@@ -208,6 +210,12 @@ function PortalApp() {
 
   const dismissNotice = useCallback(() => setNotice(null), []);
   const handleSignOut = useCallback(async () => {
+    const confirmed = await confirm({
+      title: 'Sign out of the student portal?',
+      message: 'You will need to sign in again to view your student or administration workspace.',
+      confirmLabel: 'Sign out',
+    });
+    if (!confirmed) return;
     const { signOutUser } = await import('./models/authRepository');
     try {
       await signOutUser();
@@ -216,7 +224,7 @@ function PortalApp() {
     } catch (error) {
       setNotice({ type: 'error', message: error.message || 'You could not be signed out. Please try again.' });
     }
-  }, [navigate]);
+  }, [confirm, navigate]);
 
   const authDialog = authOpen && (
     <AuthDialog
@@ -325,7 +333,9 @@ function PortalApp() {
 export default function App() {
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <PortalApp />
+      <ConfirmationProvider>
+        <PortalApp />
+      </ConfirmationProvider>
     </HashRouter>
   );
 }
