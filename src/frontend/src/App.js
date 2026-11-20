@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   HashRouter,
+  Navigate,
   Outlet,
   Route,
   Routes,
@@ -13,10 +14,6 @@ import useConfirmation, { ConfirmationProvider } from './components/Confirmation
 import SiteLayout from './components/SiteLayout';
 import {
   AdminDashboard,
-  ContactPage,
-  CoursesPage,
-  FeesPage,
-  HomePage,
   NotificationsPage,
   RequestPage,
   ServiceDetailsPage,
@@ -27,12 +24,11 @@ import {
 } from './pages/PortalPages';
 import useAuth from './controllers/useAuth';
 import useServices from './controllers/useServices';
-import { courses, findService as findDefaultService } from './models/services';
+import { findService as findDefaultService } from './models/services';
 import {
   cancelStudentRequest,
   createService,
   saveAcademicOptions,
-  createPublicInquiry,
   createStudentRecord,
   createStudentRequest,
   deleteStudentRequest,
@@ -53,61 +49,42 @@ import './App.css';
 import './PortalRedesign.css';
 import './PortalExperience.css';
 
-function PortalFrame({ layoutProps, authDialog }) {
+function PortalFrame({ layoutProps }) {
   return (
     <SiteLayout {...layoutProps}>
       <Outlet />
-      {authDialog}
     </SiteLayout>
   );
 }
 
-function ServiceRoute({ services, user, navigate, requireStudent }) {
+function ServiceRoute({ services, navigate }) {
   const { serviceId } = useParams();
   const service = services.find((item) => item.id === serviceId) || findDefaultService(serviceId);
 
   if (!service) {
     return <SuccessPage navigate={navigate} title="Service not found" message="This service may have moved or is no longer available." />;
   }
-  if (service.studentOnly && !user) {
-    return (
-      <SuccessPage
-        navigate={navigate}
-        title="Sign in to view this service"
-        message="This service is available to registered students. Sign in to see details and submit a request."
-        primaryLabel="Student sign in"
-        onPrimary={() => requireStudent(`/services/${service.id}`)}
-      />
-    );
+  if (!service.studentOnly) {
+    return <SuccessPage navigate={navigate} title="Service unavailable" message="This service is not available in the student portal." primaryLabel="Back to student services" primaryPath="/services" />;
   }
 
   return (
     <ServiceDetailsPage
       service={service}
       navigate={navigate}
-      onRequest={() => service.studentOnly
-        ? requireStudent(`/request/${service.id}`)
-        : navigate(`/request/${service.id}`)}
+      onRequest={() => navigate(`/request/${service.id}`)}
     />
   );
 }
 
-function RequestRoute({ services, user, profile, navigate, requireStudent, openSignIn }) {
+function RequestRoute({ services, user, profile, navigate }) {
   const { serviceId } = useParams();
   const service = services.find((item) => item.id === serviceId) || findDefaultService(serviceId);
   if (!service) {
     return <SuccessPage navigate={navigate} title="Service not found" message="Choose a service from the service directory to continue." />;
   }
-  if (service.studentOnly && !user) {
-    return (
-      <SuccessPage
-        navigate={navigate}
-        title="Sign in to submit this request"
-        message="This service is for registered students. Sign in to continue with your request."
-        primaryLabel="Student sign in"
-        onPrimary={() => requireStudent(`/request/${service.id}`)}
-      />
-    );
+  if (!service.studentOnly) {
+    return <SuccessPage navigate={navigate} title="Service unavailable" message="This service is not available in the student portal." primaryLabel="Back to student services" primaryPath="/services" />;
   }
 
   return (
@@ -116,10 +93,8 @@ function RequestRoute({ services, user, profile, navigate, requireStudent, openS
       user={user}
       profile={profile}
       onStudentSubmit={(request) => createStudentRequest(user.uid, request)}
-      onPublicSubmit={createPublicInquiry}
       onSubmitted={(submission) => navigate('/submitted', { state: { submission } })}
       navigate={navigate}
-      onSignIn={openSignIn}
     />
   );
 }
@@ -127,7 +102,7 @@ function RequestRoute({ services, user, profile, navigate, requireStudent, openS
 function PortalApp() {
   const confirm = useConfirmation();
   const { user, profile, isAdmin, loading, authError, isOnline } = useAuth();
-  const { services, error: servicesError } = useServices();
+  const { services, error: servicesError } = useServices(Boolean(user && !loading));
   const location = useLocation();
   const routerNavigate = useNavigate();
   const path = location.pathname;
@@ -137,12 +112,6 @@ function PortalApp() {
     : ['requests', 'inquiries', 'students', 'finance', 'services', 'staff', 'academics'].includes(requestedStaffSection)
       ? requestedStaffSection
       : 'requests';
-  const requestRoute = path.match(/^\/request\/([^/]+)$/);
-  const findService = (id) => services.find((service) => service.id === id) || findDefaultService(id);
-  const protectedRequest = requestRoute ? findService(requestRoute[1])?.studentOnly : false;
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState('login');
-  const [pendingPath, setPendingPath] = useState('');
   const [notice, setNotice] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [notificationError, setNotificationError] = useState('');
@@ -167,46 +136,23 @@ function PortalApp() {
     });
   }, [userId]);
 
-  const requireStudent = useCallback((nextPath) => {
-    if (!user) {
-      setPendingPath(nextPath);
-      setAuthMode('login');
-      setAuthOpen(true);
-      return;
-    }
-    navigate(nextPath);
-  }, [navigate, user]);
-
   useEffect(() => {
     if (loading) return;
-    if (path === '/student' && isAdmin && user) {
-      navigate('/staff');
-    } else if ((path === '/student' || path === '/notifications' || protectedRequest) && !user) {
-      setPendingPath(path);
-      setAuthMode('login');
-      setAuthOpen(true);
+    if (!user && path !== '/') {
       navigate('/');
+    } else if (path === '/' && user) {
+      navigate(isAdmin ? '/staff' : '/student');
+    } else if (path === '/student' && isAdmin && user) {
+      navigate('/staff');
     } else if (path === '/staff' && !isAdmin) {
-      navigate(user ? '/student' : '/');
+      navigate('/student');
       setNotice({ type: 'error', message: 'Staff access is restricted to authorized university accounts.' });
     }
-  }, [isAdmin, loading, navigate, path, protectedRequest, user]);
-
-  const openSignIn = useCallback(() => {
-    setPendingPath('');
-    setAuthMode('login');
-    setAuthOpen(true);
-  }, []);
+  }, [isAdmin, loading, navigate, path, user]);
 
   const handleAuthSuccess = useCallback(async (account) => {
-    setAuthOpen(false);
-    if (pendingPath) {
-      navigate(pendingPath);
-      setPendingPath('');
-    } else {
-      navigate(account?.isAdmin ? '/staff' : '/student');
-    }
-  }, [navigate, pendingPath]);
+    navigate(account?.isAdmin ? '/staff' : '/student');
+  }, [navigate]);
 
   const dismissNotice = useCallback(() => setNotice(null), []);
   const handleSignOut = useCallback(async () => {
@@ -227,16 +173,6 @@ function PortalApp() {
     }
   }, [confirm, navigate]);
 
-  const authDialog = authOpen && (
-    <AuthDialog
-      initialMode={authMode}
-      onClose={() => {
-        setAuthOpen(false);
-        setPendingPath('');
-      }}
-      onSuccess={handleAuthSuccess}
-    />
-  );
   const layoutProps = {
     currentPath: path,
     currentSection: staffSection,
@@ -246,31 +182,25 @@ function PortalApp() {
     isOnline,
     unreadNotificationCount: notifications.filter((item) => !item.read).length,
     onOpenNotifications: () => navigate('/notifications'),
-    onSignIn: openSignIn,
-    onStudentAccess: () => requireStudent('/student'),
     notice,
     onDismissNotice: dismissNotice,
     onSignOut: handleSignOut,
-    navigate,
   };
+  const rootElement = user
+    ? <PortalFrame layoutProps={layoutProps} />
+    : loading
+      ? <div className="auth-loading" role="status">Checking your portal access…</div>
+      : <AuthDialog fullPage onSuccess={handleAuthSuccess} />;
 
   return (
     <Routes>
-      <Route path="/" element={<PortalFrame layoutProps={layoutProps} authDialog={authDialog} />}>
-        <Route index element={(
-          <HomePage
-            navigate={navigate}
-            user={user}
-            services={services}
-            serviceError={servicesError}
-            onStudentAccess={() => requireStudent('/student')}
-          />
-        )} />
-        <Route path="services" element={<ServicesPage navigate={navigate} user={user} services={services} serviceError={servicesError} />} />
-        <Route path="services/:serviceId" element={<ServiceRoute services={services} user={user} navigate={navigate} requireStudent={requireStudent} />} />
-        <Route path="request/:serviceId" element={<RequestRoute services={services} user={user} profile={profile} navigate={navigate} requireStudent={requireStudent} openSignIn={openSignIn} />} />
-        <Route path="courses" element={<CoursesPage courses={courses} navigate={navigate} />} />
-        <Route path="fees" element={<FeesPage navigate={navigate} services={services} />} />
+      <Route path="/" element={rootElement}>
+        <Route index element={loading
+          ? <div className="content-wrap" role="status">Checking your account…</div>
+          : <Navigate to={isAdmin ? '/staff' : '/student'} replace />} />
+        <Route path="services" element={<ServicesPage navigate={navigate} services={services} serviceError={servicesError} />} />
+        <Route path="services/:serviceId" element={<ServiceRoute services={services} navigate={navigate} />} />
+        <Route path="request/:serviceId" element={<RequestRoute services={services} user={user} profile={profile} navigate={navigate} />} />
         <Route path="student" element={user ? (
           <StudentDashboard
             user={user}
@@ -313,19 +243,10 @@ function PortalApp() {
             navigate={navigate}
           />
         ) : <div className="content-wrap" role="status">Checking staff access…</div>} />
-        <Route path="contact" element={<ContactPage onSubmit={createPublicInquiry} />} />
         <Route path="submitted" element={(
           <SubmissionConfirmationPage submission={location.state?.submission} navigate={navigate} />
         )} />
-        <Route path="*" element={(
-          <SuccessPage
-            navigate={navigate}
-            title="Page not found"
-            message="The page you were looking for could not be found."
-            primaryLabel="Return to home"
-            primaryPath="/"
-          />
-        )} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );

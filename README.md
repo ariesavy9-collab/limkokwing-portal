@@ -1,6 +1,6 @@
 # Limkokwing University Student Services Portal
 
-A React portal for browsing university services, sending public enquiries, and giving registered students a secure place to manage service requests. The interface is based on the supplied student-service portal design and uses reusable components with separate models and authentication/controller logic.
+A secure React portal for registered students and authorized staff to manage university service requests. The app opens directly to Google sign-in; there is no public visitor experience. The interface uses reusable components with separate models and authentication/controller logic.
 
 ## Run locally
 
@@ -17,19 +17,18 @@ The app uses the Limkokwing Firebase project configured in `src/frontend/src/mod
 2. Add the local and deployed host names to Authentication → Settings → Authorized domains.
 3. The default Firestore database is already present in the configured project. Ensure the Authentication providers and authorized domains above are configured before testing sign-in.
 4. The repository is linked to the `limkokwing-university` Firebase project. To publish the Firestore rules, run `firebase deploy --only firestore:rules` after reviewing the rules and confirming the target project.
-5. After installing dependencies at the repository root, deploy the protected admin-access and request-notification functions using `firebase deploy --only functions`.
-6. To bootstrap the first administrator without Google Cloud CLI, have them attempt Google sign-in once. On a trusted administrator machine, set `GOOGLE_APPLICATION_CREDENTIALS` to a Firebase Admin service-account JSON key stored outside the repository, set `GOOGLE_CLOUD_PROJECT=limkokwing-university`, then run `node src/backend/functions/scripts/set-admin-claim.js kabeloselomo313@gmail.com`. The script requires the Google account to exist in Firebase Authentication. Ask the administrator to sign out and sign in again so the new role is included in their token. Never put the key in the browser or repository; revoke it after use.
-7. Build and publish the web app with `npm run build` and `firebase deploy --only hosting`. The `admin.html` shortcut redirects into the existing staff workspace; it does not provide a separate login or bypass the custom-claim check.
+5. After installing dependencies at the repository root, deploy the protected student-removal and request-notification functions using `firebase deploy --only functions`.
+6. Bootstrap the first administrator by setting `GOOGLE_CLOUD_PROJECT=limkokwing-university` and running `node src/backend/functions/scripts/set-admin-access.js kabeloselomo313@gmail.com` with Google Cloud Application Default Credentials or a Firebase Admin service-account credential stored outside the repository. This writes the initial `adminUsers/{email}` record; the person can then sign in with Google. Never put a service-account key in the browser or repository, and revoke it after use. Once an administrator is set up, additional admins can be granted from the staff workspace.
+7. Build and publish the web app with `npm run build` and `firebase deploy --only hosting`. The `admin.html` shortcut redirects into the existing staff workspace; it does not provide a separate login or bypass the `adminUsers` check.
 
 Cloud Functions deployment may require the Firebase project to use the Blaze billing plan. Review current Firebase pricing and enable billing only if required for your project.
 
 ## Features
 
-- Public service directory, service details, contact information, and visitor enquiries. Visitors only see public services; authenticated users can see student services.
-- Nested client-side routes using React Router (`HashRouter`) for the home page, service directory, parameterized service details and request forms, student portal, staff workspace, contact page, submission confirmation, and 404 page. Hash-based URLs continue to work with Firebase Hosting without a server rewrite for each route.
-- Successful requests and enquiries navigate to a confirmation page showing the submission reference, service, submitter details, date, and description, with direct navigation back to services or home.
-- Public course catalogue and fee information for prospective students. The Fees page shows published service fees and directs visitors to the university for tuition amounts until an official course fee schedule is available.
-- Google-only sign-in. Student Google accounts must match a student record added by an administrator; admin roles require both a Firestore role document and a Firebase custom claim.
+- Google-only sign-in is the application entry point. Student Google accounts must match a student record added by an administrator; admin roles are determined by the signed-in email's `adminUsers` Firestore document. All non-login routes require an authenticated account.
+- Nested client-side routes using React Router (`HashRouter`) for the login screen, student service directory and requests, student portal, staff workspace, notifications, and request confirmation. Hash-based URLs continue to work with Firebase Hosting without a server rewrite for each route.
+- Student requests navigate to a confirmation page showing the submission reference, service, student details, date, and description.
+- Students can browse and request student-only services; visitor services and public enquiry forms are not exposed in the portal.
 - Administrators register and edit students' name, student number, date/place of birth, phone, address, faculty, and course. Faculty and course are entered against current Lesotho campus records rather than an unverified preset list. A student's sign-in email remains fixed to their Google account. The directory can be searched by name, email, student number, faculty, or course; students can view their full record but cannot edit it.
 - Administrators can remove a student and their portal account, profile, requests, notifications, and draft letters through a protected Cloud Function.
 - In-app notifications are sent to administrators when a student submits a request and to students when their request is accepted, rejected, or otherwise updated. Unread counts update in the signed-in portal.
@@ -46,16 +45,14 @@ Firestore does not support creating an empty collection on its own; a collection
 
 - `studentDirectory` — student identity, contact, faculty, and course details; created by an administrator before student sign-in and readable by the student whose email matches the document.
 - `studentLetters` — generated draft letters, readable by the addressed student and administrators only.
-- `adminUsers` — admin-role email records, paired with Firebase custom claims.
+- `adminUsers` — administrator email records. Existing administrators can grant access to another email directly from the staff workspace; the added person can sign in with Google afterward.
 - `users` — profile documents are created after an approved Google sign-in; client updates are disabled.
 - `serviceRequests` — created when a signed-in student submits a service request.
-- `publicInquiries` — created when a visitor submits a public enquiry.
+- `publicInquiries` — legacy public enquiries retained for administrator review; the public enquiry form is no longer available.
 - `services` — created when authorized staff add a custom service.
 - `notifications` — created by Cloud Functions for request submissions and status changes; each signed-in user can read and mark only their own notifications as read.
 
-The contact page also submits general enquiries to `publicInquiries`; successful submissions display their Firestore document reference.
-
-No demo student accounts or sample personal requests are written to the database. Firestore rules bind requests and profile student numbers to the pre-approved student directory, and require both a Firestore admin record and trusted Firebase `admin` claim for staff operations.
+No demo student accounts or sample personal requests are written to the database. Firestore rules bind requests and profile student numbers to the pre-approved student directory, and authorize staff operations using the signed-in email's `adminUsers` record.
 
 ## Assignment requirements and demonstration
 

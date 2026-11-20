@@ -8,7 +8,6 @@ import {
   CoursesPage,
   ContactPage,
   FeesPage,
-  HomePage,
   NotificationsPage,
   RequestPage,
   ServicesPage,
@@ -380,48 +379,29 @@ jest.mock('./models/portalRepository', () => ({
   }),
 }));
 
-test('home page explains student access and public services', () => {
-  render(<HomePage navigate={jest.fn()} user={null} services={services} onStudentAccess={jest.fn()} />);
+test('student service directory filters student-only services', () => {
+  render(<ServicesPage navigate={jest.fn()} services={services} />);
 
-  expect(screen.getByRole('heading', { name: /your one-stop student services portal/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /student sign in/i })).toBeInTheDocument();
-  expect(screen.queryByLabelText('Portal highlights')).not.toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'General enquiry' })).toBeInTheDocument();
+  expect(screen.getByText('4 services')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Academic transcript' })).toBeInTheDocument();
-});
-
-test('service directory shows visitor-accessible services and filters them by name', () => {
-  render(<ServicesPage navigate={jest.fn()} user={null} services={services} />);
-
-  expect(screen.getByText('2 services')).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Academic transcript' })).not.toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'General enquiry' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'General enquiry' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Technical support' })).not.toBeInTheDocument();
 
   fireEvent.change(screen.getByRole('searchbox', { name: /search university services/i }), {
-    target: { value: 'technical' },
+    target: { value: 'transcript' },
   });
 
   expect(screen.getByText('1 service')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Technical support' })).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'General enquiry' })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Academic transcript' })).toBeInTheDocument();
   expect(screen.queryByText('Students')).not.toBeInTheDocument();
 });
 
-test('signed-in students see all service categories without the student callout', () => {
-  const user = { uid: 'student-1' };
-  render(<HomePage navigate={jest.fn()} user={user} services={services} onStudentAccess={jest.fn()} />);
+test('student service directory excludes visitor services', () => {
+  render(<ServicesPage navigate={jest.fn()} services={services} />);
 
+  expect(screen.getByText('4 services')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Academic transcript' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Student portal' })).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: /your requests, all in one place/i })).not.toBeInTheDocument();
-});
-
-test('signed-in students can access the complete service directory', () => {
-  render(<ServicesPage navigate={jest.fn()} user={{ uid: 'student-1' }} services={services} />);
-
-  expect(screen.getByText('6 services')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Academic transcript' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'General enquiry' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'General enquiry' })).not.toBeInTheDocument();
 });
 
 test('public courses page lists its course catalogue and supports search', () => {
@@ -489,65 +469,59 @@ test('contact form rejects an email address without a valid @ format', () => {
   expect(onSubmit).not.toHaveBeenCalled();
 });
 
-test('courses route displays the locally maintained course catalogue', () => {
+test('unauthenticated users cannot access the public course catalogue', () => {
   window.location.hash = '/courses';
   render(<App />);
 
-  expect(screen.getByText('29 courses')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Diploma in Film Production' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+  expect(screen.queryByText('29 courses')).not.toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });
 
-test('nested service route displays details for the selected service', () => {
+test('unauthenticated users are sent to the login form from service routes', () => {
   window.location.hash = '/services/tech-support';
   render(<App />);
 
-  expect(screen.getByRole('heading', { name: 'Technical support' })).toBeInTheDocument();
-  expect(screen.getByText('IT services')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Technical support' })).not.toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });
 
-test('React Router navigation links switch pages without a browser refresh', () => {
+test('the app opens directly on the student and staff login form', () => {
   render(<App />);
 
-  fireEvent.click(screen.getAllByRole('link', { name: 'Services' })[0]);
-
-  expect(screen.getByRole('heading', { name: 'University services' })).toBeInTheDocument();
-  expect(window.location.hash).toBe('#/services');
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
+  expect(screen.getByText('Need assistance?')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Contact Registry' })).toHaveAttribute('href', 'mailto:registry@limkokwing.ac.ls');
+  expect(screen.getByText('Limkokwing University of Creative Technology, Lesotho')).toBeInTheDocument();
+  expect(screen.queryByText('STUDENT & ADMINISTRATION PORTAL')).not.toBeInTheDocument();
+  expect(screen.queryByText('SECURE UNIVERSITY ACCESS')).not.toBeInTheDocument();
+  expect(screen.queryByText(/contact Student Affairs if you need access/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /your one-stop student services portal/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Courses' })).not.toBeInTheDocument();
 });
 
-test('unknown route renders a not-found page with a route back to home', () => {
+test('unknown routes do not expose public content to signed-out users', () => {
   window.location.hash = '/not-a-page';
   render(<App />);
 
-  expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /return to home/i })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });
 
-test('request submission routes to a confirmation page with the submitted details', async () => {
+test('public enquiries are no longer available without portal access', () => {
   const { createPublicInquiry } = require('./models/portalRepository');
-  createPublicInquiry.mockResolvedValueOnce('inquiry-reference-456');
   window.location.hash = '/request/enquiry';
   render(<App />);
 
-  fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Visitor Example' } });
-  fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'visitor@example.com' } });
-  fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: '+26651234567' } });
-  fireEvent.change(screen.getByLabelText('Your message'), { target: { value: 'Please help me with a general university enquiry.' } });
-  fireEvent.submit(screen.getByRole('button', { name: /send enquiry/i }).closest('form'));
-  fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Send enquiry' }));
-
-  expect(await screen.findByRole('heading', { name: 'Submission received' })).toBeInTheDocument();
-  expect(screen.getByText('inquiry-reference-456')).toBeInTheDocument();
-  expect(screen.getByText('General enquiry')).toBeInTheDocument();
-  expect(screen.getByText('Visitor Example')).toBeInTheDocument();
-  expect(screen.getByText('visitor@example.com')).toBeInTheDocument();
-  expect(screen.getByText('Please help me with a general university enquiry.')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Back to services' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+  expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
+  expect(createPublicInquiry).not.toHaveBeenCalled();
 
   window.history.replaceState(null, '', '/');
 });
@@ -822,7 +796,7 @@ test('staff can add a student record and grant admin access to Google accounts',
   fireEvent.change(document.querySelector('#admin-email'), { target: { value: 'admin@example.com' } });
   fireEvent.submit(screen.getByRole('button', { name: /grant admin access/i }).closest('form'));
   await waitFor(() => expect(onGrantAdminAccess).toHaveBeenCalledWith('admin@example.com'));
-});
+}, 15000);
 
 test('faculty and course management is a separate admin page', async () => {
   const onSaveAcademicOptions = jest.fn().mockResolvedValue(undefined);
@@ -1049,13 +1023,13 @@ test('admin can edit a student record and change the faculty and course assignme
   })));
 });
 
-test('a visitor can submit a public enquiry without signing in', () => {
+test('a visitor cannot submit a public enquiry without portal access', () => {
   window.location.hash = '/request/enquiry';
   render(<App />);
 
-  expect(screen.getByRole('heading', { name: 'How can we help?' })).toBeInTheDocument();
-  expect(screen.getByText('PUBLIC ENQUIRY')).toBeInTheDocument();
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+  expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
+  expect(screen.queryByText('PUBLIC ENQUIRY')).not.toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });
@@ -1065,7 +1039,7 @@ test('a student request asks an unauthenticated visitor to sign in', () => {
   render(<App />);
 
   expect(screen.getByRole('dialog')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Sign in to your portal' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });
@@ -1075,7 +1049,7 @@ test('the student dashboard route waits for authentication before rendering', as
   render(<App />);
 
   expect(await screen.findByRole('dialog')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Sign in to your portal' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
 
   window.history.replaceState(null, '', '/');
 });

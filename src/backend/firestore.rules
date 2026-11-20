@@ -2,14 +2,18 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function signedIn() {
       return request.auth != null;
     }
 
+    // An account is an administrator when its email has an adminUsers record.
     function staff() {
       return signedIn()
-        && request.auth.token.admin == true
-        && exists(/databases/$(database)/documents/adminUsers/$(request.auth.token.email));
+        && request.auth.token.email is string
+        && exists(
+          /databases/$(database)/documents/adminUsers/$(request.auth.token.email)
+        );
     }
 
     function validName(name, maximumLength) {
@@ -34,9 +38,13 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.studentId.matches('^90[0-9]{7}$');
     }
 
+    // ==========================================
+    // ADMIN USERS
+    // ==========================================
+
     match /adminUsers/{email} {
       allow read: if staff() || (signedIn() && request.auth.token.email == email);
-      allow write: if staff();
+      allow create, update, delete: if staff();
     }
 
     match /studentDirectory/{email} {

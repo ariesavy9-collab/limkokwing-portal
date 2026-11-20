@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAuthErrorMessage, loginWithGoogle } from '../models/authRepository';
-import Icon from './Icon';
+import universityLogo from '../logo.png';
 
-function AuthDialog({ onClose, onSuccess }) {
+const noop = () => {};
+
+function AuthDialog({ onClose = noop, onSuccess, fullPage = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const closeButton = useRef(null);
+  const googleButton = useRef(null);
 
   useEffect(() => {
-    closeButton.current?.focus();
+    if (fullPage) document.title = 'Portal sign in | Limkokwing Student Service Request System';
+    (fullPage ? googleButton.current : closeButton.current)?.focus();
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose();
+      if (!fullPage && event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [fullPage, onClose]);
 
   const handleGoogle = async () => {
     setBusy(true);
@@ -30,14 +34,21 @@ function AuthDialog({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) onClose();
-    }}>
+    <div
+      className={`modal-backdrop${fullPage ? ' auth-screen' : ''}`}
+      onMouseDown={fullPage ? undefined : (event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <button className="modal-close" ref={closeButton} onClick={onClose} aria-label="Close sign-in dialog">×</button>
-        <span className="eyebrow"><Icon name="shield" size={14} /> SECURE UNIVERSITY ACCESS</span>
-        <h2 id="auth-title">Sign in to your portal</h2>
-        <button className="button google-button" onClick={handleGoogle} disabled={busy} type="button">
+        {fullPage && (
+          <div className="auth-screen-brand">
+            <img src={universityLogo} alt="Limkokwing University" />
+          </div>
+        )}
+        {!fullPage && <button className="modal-close" ref={closeButton} onClick={onClose} aria-label="Close sign-in dialog">×</button>}
+        <h2 id="auth-title">{fullPage ? 'Login' : 'Sign in to your portal'}</h2>
+        <button className="button google-button" ref={googleButton} onClick={handleGoogle} disabled={busy} type="button">
           <svg className="google-mark" viewBox="0 0 48 48" aria-hidden="true">
             <path d="M12 12a17 17 0 0 1 24 0" fill="none" stroke="#ea4335" strokeWidth="8" />
             <path d="M36 12a17 17 0 0 1 0 24" fill="none" stroke="#4285f4" strokeWidth="8" />
@@ -45,10 +56,20 @@ function AuthDialog({ onClose, onSuccess }) {
             <path d="M12 36a17 17 0 0 1 0-24" fill="none" stroke="#fbbc05" strokeWidth="8" />
             <path d="M24 24h16" fill="none" stroke="#4285f4" strokeWidth="8" />
           </svg>
-          {busy ? 'Signing in…' : 'Continue with Google'}
+          {busy ? 'Signing in…' : 'Sign in with Google'}
         </button>
         {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
-        <p className="auth-privacy">Need access? Contact Student Affairs to confirm your account is registered.</p>
+        {fullPage && (
+          <>
+            <div className="auth-screen-support">
+              <span>Need assistance?</span>
+              <a href="mailto:registry@limkokwing.ac.ls">Contact Registry</a>
+            </div>
+            <footer className="auth-screen-footer">
+              Limkokwing University of Creative Technology, Lesotho
+            </footer>
+          </>
+        )}
       </section>
     </div>
   );

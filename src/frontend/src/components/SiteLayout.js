@@ -13,11 +13,9 @@ function SiteLayout({
   isOnline,
   unreadNotificationCount = 0,
   onOpenNotifications,
-  onSignIn,
   onSignOut,
   notice,
   onDismissNotice,
-  navigate,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -26,19 +24,6 @@ function SiteLayout({
   const helpWidget = useRef(null);
   const accountMenu = useRef(null);
   const accountMenuButton = useRef(null);
-  const publicSections = [
-    {
-      title: 'Explore',
-      label: 'Public navigation',
-      links: [
-        { label: 'Home', path: '/', icon: 'home' },
-        { label: 'Services', path: '/services', icon: 'grid' },
-        { label: 'Courses', path: '/courses', icon: 'university' },
-        { label: 'Tuition & fees', path: '/fees', icon: 'document' },
-        { label: 'Help & contact', path: '/contact', icon: 'message' },
-      ],
-    },
-  ];
   const studentSections = [
     {
       title: 'Student space',
@@ -47,16 +32,6 @@ function SiteLayout({
         { label: 'Student home', path: '/student', icon: 'user' },
         { label: 'Browse services', path: '/services', icon: 'grid' },
         { label: 'Notifications', path: '/notifications', icon: 'bell' },
-      ],
-    },
-    {
-      title: 'University',
-      label: 'University information',
-      links: [
-        { label: 'Home', path: '/', icon: 'home' },
-        { label: 'Courses', path: '/courses', icon: 'university' },
-        { label: 'Tuition & fees', path: '/fees', icon: 'document' },
-        { label: 'Help & contact', path: '/contact', icon: 'message' },
       ],
     },
   ];
@@ -75,7 +50,7 @@ function SiteLayout({
       ],
     },
   ];
-  const navigationSections = isAdmin ? adminSections : user ? studentSections : publicSections;
+  const navigationSections = isAdmin ? adminSections : studentSections;
   const titles = {
     '/': 'University home',
     '/student': 'Student home',
@@ -105,14 +80,7 @@ function SiteLayout({
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Student';
   const mobileLinks = isAdmin
     ? adminSections[0].links.slice(0, 4)
-    : user
-      ? [
-        studentSections[0].links[0],
-        studentSections[0].links[1],
-        studentSections[0].links[2],
-        studentSections[1].links[0],
-      ]
-      : publicSections[0].links.filter((link) => ['Home', 'Services', 'Courses', 'Help & contact'].includes(link.label));
+    : studentSections[0].links;
 
   const isActiveLink = (link) => link.section
     ? currentPath === '/staff' && currentSection === link.section
@@ -205,7 +173,7 @@ function SiteLayout({
             <h1>{pageTitle}</h1>
           </div>
           <div className="portal-header-actions">
-            {loading ? <span className="header-loading" role="status">Loading account…</span> : user ? (
+            {loading ? <span className="header-loading" role="status">Loading account…</span> : (
               <>
                 <button
                   type="button"
@@ -259,11 +227,6 @@ function SiteLayout({
                   )}
                 </div>
               </>
-            ) : (
-              <button className="button button-primary portal-sign-in" onClick={onSignIn}>
-                <Icon name="user" size={17} />
-                Sign in
-              </button>
             )}
           </div>
         </header>
@@ -305,7 +268,7 @@ function SiteLayout({
         {helpOpen && (
           <section className="portal-help-menu" id="portal-help-menu" aria-labelledby="portal-help-title">
             <h2 id="portal-help-title">How can we help?</h2>
-            <p>Contact the university team or send us your question.</p>
+            <p>Contact Student Affairs for help with your student account or service request.</p>
             <a href="mailto:registry@limkokwing.ac.ls" onClick={() => setHelpOpen(false)}>
               <Icon name="mail" size={18} />
               <span><strong>Email registry</strong><small>registry@limkokwing.ac.ls</small></span>
@@ -314,10 +277,6 @@ function SiteLayout({
               <Icon name="phone" size={18} />
               <span><strong>Call the campus</strong><small>+266 2231 3000</small></span>
             </a>
-            <button type="button" onClick={() => { setHelpOpen(false); navigate('/contact'); }}>
-              <Icon name="message" size={18} />
-              <span><strong>Send an enquiry</strong><small>Open the contact form</small></span>
-            </button>
           </section>
         )}
         <button

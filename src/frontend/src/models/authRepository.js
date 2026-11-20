@@ -3,9 +3,8 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth } from './firebase';
-import { db } from './firebase';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { ensureUserProfile } from './portalRepository';
 
 export async function loginWithGoogle() {
@@ -20,12 +19,11 @@ export async function loginWithGoogle() {
   }
 
   try {
-    const [adminRecord, studentRecord, token] = await Promise.all([
+    const [adminRecord, studentRecord] = await Promise.all([
       getDoc(doc(db, 'adminUsers', email)),
       getDoc(doc(db, 'studentDirectory', email)),
-      user.getIdTokenResult(true),
     ]);
-    const isAdmin = adminRecord.exists() && token.claims.admin === true;
+    const isAdmin = adminRecord.exists();
     const student = studentRecord.exists() ? studentRecord.data() : null;
     const isRegisteredStudent = student?.email?.toLowerCase() === email
       && /^90[0-9]{7}$/.test(student.studentId || '');
@@ -40,6 +38,21 @@ export async function loginWithGoogle() {
     await signOut(auth);
     throw error;
   }
+}
+
+export function subscribeToAdminAccess(email, onAccess, onError) {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) {
+    onAccess(false, false);
+    return () => {};
+  }
+
+  return onSnapshot(
+    doc(db, 'adminUsers', normalizedEmail),
+    { includeMetadataChanges: true },
+    (snapshot) => onAccess(snapshot.exists(), snapshot.metadata.fromCache),
+    onError,
+  );
 }
 
 export async function signOutUser() {

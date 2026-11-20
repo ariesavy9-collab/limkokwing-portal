@@ -157,54 +157,6 @@ exports.notifyOnProfileUpdated = onDocumentUpdated({
   });
 });
 
-exports.grantAdminAccess = onCall({ region: 'us-central1' }, async (request) => {
-  const callerEmail = request.auth?.token?.email?.toLowerCase();
-  const callerRecord = callerEmail
-    ? await db.collection('adminUsers').doc(callerEmail).get()
-    : null;
-  if (request.auth?.token?.admin !== true || !callerRecord?.exists) {
-    throw new HttpsError('permission-denied', 'Only authorized university staff can grant admin access.');
-  }
-
-  const email = typeof request.data?.email === 'string' ? request.data.email.trim().toLowerCase() : '';
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new HttpsError('invalid-argument', 'Enter a valid Google account email address.');
-  }
-
-  let userRecord;
-  try {
-    userRecord = await auth.getUserByEmail(email);
-  } catch (error) {
-    if (error.code === 'auth/user-not-found') {
-      throw new HttpsError('not-found', 'This Google account has not signed in yet. Ask the user to sign in once, then add them as an admin.');
-    }
-    logger.error('Could not find the requested Google account.', { code: error.code || 'unknown' });
-    throw new HttpsError('internal', 'The Google account could not be found. Please try again.');
-  }
-
-  try {
-    await db.collection('adminUsers').doc(email).set({
-      email,
-      uid: userRecord.uid,
-      name: userRecord.displayName || email,
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    await auth.setCustomUserClaims(userRecord.uid, {
-      ...userRecord.customClaims,
-      admin: true,
-    });
-  } catch (error) {
-    logger.error('Could not grant admin access.', {
-      uid: userRecord.uid,
-      code: error.code || 'unknown',
-    });
-    throw new HttpsError('internal', 'Admin access could not be granted. Please try again.');
-  }
-
-  logger.info('Admin access granted.', { uid: userRecord.uid });
-  return { uid: userRecord.uid, email: userRecord.email };
-});
-
 exports.deleteStudentRecord = onCall({
   region: 'us-central1',
   timeoutSeconds: 540,
@@ -213,7 +165,7 @@ exports.deleteStudentRecord = onCall({
   const callerRecord = callerEmail
     ? await db.collection('adminUsers').doc(callerEmail).get()
     : null;
-  if (request.auth?.token?.admin !== true || !callerRecord?.exists) {
+  if (!callerRecord?.exists) {
     throw new HttpsError('permission-denied', 'Only authorized university staff can remove students.');
   }
 

@@ -1130,7 +1130,6 @@ body,
   font-style: italic;
 }
 
-.service-grid,
 .course-grid,
 .pathway-grid {
   display: block;
@@ -1138,7 +1137,6 @@ body,
   column-gap: 12px;
 }
 
-.service-grid > .service-card,
 .course-grid > .course-card,
 .pathway-grid > .pathway-card {
   display: inline-flex;
@@ -1195,7 +1193,6 @@ body,
     align-items: flex-start;
   }
 
-  .service-grid,
   .course-grid,
   .pathway-grid {
     column-count: 1;
@@ -1203,10 +1200,13 @@ body,
 }
 
 @media (min-width: 601px) and (max-width: 900px) {
-  .service-grid,
   .course-grid,
   .pathway-grid {
     column-count: 2;
+  }
+
+  .service-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1742,7 +1742,7 @@ body,
 .finance-panel-heading > strong,
 .finance-chart-legend strong,
 .finance-student-table .finance-amount-owed {
-  color: #f3f5f7;
+  color: #fff;
 }
 
 .request-fee,
@@ -1803,7 +1803,7 @@ body,
   margin: 32px 0 4px;
   padding: 14px 0;
   color: var(--muted);
-  background: transparent;
+  background: #0d1721;
   border-top: 1px solid var(--line);
   font-size: 11px;
   line-height: 1.5;
@@ -1848,5 +1848,103 @@ body,
     min-height: 56px;
     padding: 0 20px;
     font-size: 16px;
+  }
+}
+
+.auth-screen {
+  z-index: 1;
+  background: #0a121a;
+  backdrop-filter: none;
+}
+
+.auth-screen .auth-dialog {
+  width: min(630px, 100%);
+  min-height: min(635px, calc(100vh - 40px));
+  max-height: none;
+  padding: clamp(36px, 7vw, 62px);
+  border-color: #284354;
+  border-radius: 12px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .35);
+}
+
+.auth-screen-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 42px;
+}
+
+.auth-screen-brand img {
+  width: min(365px, 100%);
+  height: 138px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.auth-screen .auth-dialog > h2 {
+  margin: 0 0 52px;
+  color: #d7dce0;
+  font-size: clamp(38px, 6vw, 48px);
+  font-weight: 300;
+  letter-spacing: -.035em;
+  text-align: center;
+}
+
+.auth-screen .google-button {
+  width: 100%;
+  min-height: 54px;
+  color: #f2f6f8;
+  background: #173344;
+  border: 1px solid #315464;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.auth-screen .google-button:hover:not(:disabled) {
+  background: #0755d9;
+  border-color: #0755d9;
+}
+
+.auth-screen .google-mark {
+  width: 22px;
+  height: 22px;
+}
+
+.auth-screen-support {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 60px;
+  color: #a7b4bc;
+  font-size: 14px;
+}
+
+.auth-screen-support a {
+  color: #48afe0;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.auth-screen-support a:hover {
+  text-decoration: underline;
+}
+
+.auth-screen-footer {
+  margin-top: 18px;
+  color: #a7b4bc;
+  font-size: 14px;
+  text-align: center;
+}
+
+.auth-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: #c2cbd1;
+  background: #0a121a;
+}
+
+@media (max-width: 600px) {
+  .service-grid {
+    grid-template-columns: 1fr;
   }
 }

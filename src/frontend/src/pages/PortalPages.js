@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Icon, { ICON_NAMES } from '../components/Icon';
 import useConfirmation from '../components/ConfirmationDialog';
 import ValidationErrors, { FieldValidationError } from '../components/ValidationErrors';
-import universityLogo from '../logo.png';
 import AdminFinancePage from './admin/AdminFinancePage';
 import AcademicOptionsPage from './admin/AcademicOptionsPage';
 import { handleFormInput, validateForm } from '../models/formValidation';
@@ -153,89 +152,9 @@ function ServiceCard({ service, navigate }) {
   );
 }
 
-function HomePage({ navigate, user, services, serviceError, onStudentAccess }) {
-  const availableServices = services;
-
-  return (
-    <>
-      <section className="hero">
-        <div className="hero-content">
-          <img className="hero-mobile-logo" src={universityLogo} alt="Limkokwing University" />
-          <span className="eyebrow hero-eyebrow"><span className="live-dot" /> MASERU CAMPUS · STUDENT SERVICES</span>
-          <h1><span className="hero-title-desktop">Your One-Stop Student Services Portal</span><span className="hero-title-mobile">Welcome, {user?.displayName?.split(' ')[0] || 'Student'} 👋</span></h1>
-          <p>Request, track, and manage your university services quickly and easily.</p>
-          <div className="hero-actions">
-            <button className="button button-primary" onClick={() => navigate('/services')}>Explore our services</button>
-            <button className="button button-light" onClick={onStudentAccess}>{user ? 'Student portal' : 'Student sign in'}</button>
-          </div>
-        </div>
-        <div className="hero-photo" aria-hidden="true" />
-        <div className="hero-caption"><span className="caption-line" /> Creativity meets opportunity</div>
-      </section>
-
-      <section className="section-block">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">HERE FOR YOUR NEXT STEP</span>
-            <h2>Support, without the runaround.</h2>
-          </div>
-          <p>Clear information, simple forms, and transparent updates make it easier to get on with what matters.</p>
-        </div>
-        <div className="benefit-grid">
-          <article className="benefit-card"><span className="benefit-number">01</span><Icon name="document" size={22} /><h3>Find the right service</h3><p>See what each service covers, who can use it, and how long it usually takes.</p></article>
-          <article className="benefit-card"><span className="benefit-number">02</span><Icon name="calendar" size={22} /><h3>Submit in a few steps</h3><p>Send a clear request online and receive a reference for your records.</p></article>
-          <article className="benefit-card"><span className="benefit-number">03</span><Icon name="message" size={22} /><h3>Stay in the loop</h3><p>Students can check request progress securely from their own dashboard.</p></article>
-        </div>
-      </section>
-
-      <section className="section-block services-preview">
-        {serviceError && <p className="form-alert form-alert-error" role="alert">{serviceError}</p>}
-        <div className="section-heading">
-          <div><h2>Our Services</h2></div>
-          <button className="text-button view-all-link" onClick={() => navigate('/services')}>View all</button>
-        </div>
-        <div className="service-grid">
-          {availableServices.slice(0, 6).map((service) => <ServiceCard key={service.id} service={service} navigate={navigate} />)}
-        </div>
-      </section>
-
-      {!user && (
-        <section className="section-block public-pathways">
-          <div className="section-heading">
-            <div><span className="eyebrow">PLAN YOUR NEXT STEP</span><h2>Thinking about studying with us?</h2></div>
-            <p>Explore programmes at the Maseru campus and contact the university for current fee information.</p>
-          </div>
-          <div className="pathway-grid">
-            <article className="pathway-card">
-              <span className="pathway-icon"><Icon name="university" size={22} /></span>
-              <h3>Our courses</h3>
-              <p>Browse the courses and faculties available at Limkokwing University, Lesotho.</p>
-              <button className="text-button" onClick={() => navigate('/courses')}>View our courses</button>
-            </article>
-            <article className="pathway-card">
-              <span className="pathway-icon"><Icon name="document" size={22} /></span>
-              <h3>Tuition and fees</h3>
-              <p>Request the current official fee schedule and confirm payment details with the university.</p>
-              <button className="text-button" onClick={() => navigate('/fees')}>View fees</button>
-            </article>
-          </div>
-        </section>
-      )}
-
-      {!user && (
-        <section className="student-callout">
-          <div className="callout-icon"><Icon name="shield" size={25} /></div>
-          <div><span className="eyebrow">FOR REGISTERED STUDENTS</span><h2>Your requests, all in one place.</h2><p>Sign in to submit academic service requests, manage your profile, and track progress securely.</p></div>
-          <button className="button button-primary" onClick={onStudentAccess}>Open student portal</button>
-        </section>
-      )}
-    </>
-  );
-}
-
-function ServicesPage({ navigate, user, services, serviceError }) {
+function ServicesPage({ navigate, services, serviceError }) {
   const [query, setQuery] = useState('');
-  const availableServices = services.filter((service) => user || !service.studentOnly);
+  const availableServices = services.filter((service) => service.studentOnly);
   const filteredServices = availableServices.filter((service) => (
     `${service.name} ${service.department} ${service.description}`.toLowerCase().includes(query.toLowerCase())
   ));
@@ -243,11 +162,9 @@ function ServicesPage({ navigate, user, services, serviceError }) {
   return (
     <section className="content-wrap">
       <PageHeading
-        eyebrow={user ? 'YOUR STUDENT SERVICES' : 'SERVICES FOR VISITORS'}
+        eyebrow="YOUR STUDENT SERVICES"
         title="University services"
-        description={user
-          ? 'Find the right team, understand what to expect, and start a request when you are ready.'
-          : 'Browse services available to visitors and prospective students. Sign in to access registered-student services.'}
+        description="Find the right team, understand what to expect, and start a request when you are ready."
       />
       {serviceError && <p className="form-alert form-alert-error" role="alert">{serviceError}</p>}
       <div className="service-filter">
@@ -1310,7 +1227,7 @@ function AdminDashboard({
     try {
       await onGrantAdminAccess(email);
       form.reset();
-      setStaffMessage(`Admin access granted to ${email}. They need to sign in again to refresh their access.`);
+      setStaffMessage(`Admin access granted to ${email}. They can now sign in with Google using this email address.`);
     } catch (failure) {
       setStaffError(failure.message || 'Admin access could not be granted.');
     } finally {
@@ -1613,7 +1530,7 @@ function AdminDashboard({
             <form className="request-form admin-account-form" noValidate onSubmit={handleGrantAdmin} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
               <span className="eyebrow">ADMINISTRATOR ACCESS</span>
               <h2>Add an admin</h2>
-              <p className="form-intro">The person must have signed in with Google once so Firebase can find their account.</p>
+              <p className="form-intro">Grant administrator access to this email. The person can sign in with Google afterward.</p>
               <div className="form-field"><label htmlFor="admin-email">Google account email</label><input id="admin-email" name="adminEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="admin-email" errors={staffValidationErrors} /></div>
               <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Granting access…' : 'Grant admin access'}</button>
             </form>
@@ -1769,7 +1686,6 @@ export {
   ContactPage,
   CoursesPage,
   FeesPage,
-  HomePage,
   NotificationsPage,
   RequestPage,
   ServiceDetailsPage,
