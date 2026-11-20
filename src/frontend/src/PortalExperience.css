@@ -408,9 +408,9 @@ body,
 .portal-menu-toggle,
 .portal-notification-button:hover,
 .portal-notification-button.active {
-  color: #17212b;
-  background: #e9e7e2;
-  border-color: #d3d5d6;
+  color: #f3f5f7;
+  background: #171c22;
+  border-color: #343c45;
 }
 
 .portal-notification.unread {
@@ -481,18 +481,18 @@ body,
 .service-link,
 .button-text,
 .view-all-link {
-  color: #17212b;
-  background: #e9e7e2;
-  border-color: #d3d5d6;
+  color: #f3f5f7;
+  background: #171c22;
+  border-color: #343c45;
 }
 
 .button-primary:hover:not(:disabled),
 .service-link:hover:not(:disabled),
 .button-text:hover:not(:disabled),
 .view-all-link:hover:not(:disabled) {
-  color: #111a22;
-  background: #f5f3ee;
-  border-color: #e1dfd9;
+  color: #fff;
+  background: #292f37;
+  border-color: #48515c;
 }
 
 .button-outline,
@@ -504,9 +504,9 @@ body,
   justify-content: center;
   gap: 7px;
   padding: 0 12px;
-  color: #17212b;
-  background: #e9e7e2;
-  border: 1px solid #d3d5d6;
+  color: #f3f5f7;
+  background: #171c22;
+  border: 1px solid #343c45;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 650;
@@ -519,9 +519,9 @@ body,
 .button-outline:hover:not(:disabled),
 .text-button:hover:not(:disabled),
 .request-pdf-link:hover {
-  color: #111a22;
-  background: #f5f3ee;
-  border-color: #e1dfd9;
+  color: #fff;
+  background: #292f37;
+  border-color: #48515c;
 }
 
 .service-link {
@@ -562,16 +562,16 @@ body,
 }
 
 .staff-tabs button {
-  color: #17212b;
-  background: #e9e7e2;
-  border: 1px solid #d3d5d6;
+  color: #e8edf2;
+  background: #171c22;
+  border: 1px solid #343c45;
   border-radius: 6px;
 }
 
 .staff-tabs button.active {
-  color: #142a33;
-  background: #cfe7ef;
-  border-color: #9dcbd8;
+  color: #fff;
+  background: #29323b;
+  border-color: #596572;
 }
 
 .admin-service-item,
@@ -686,15 +686,15 @@ body,
 }
 
 .hero-actions .button-primary {
-  color: #17212b;
-  background: #e9e7e2;
-  border-color: #d3d5d6;
+  color: #f3f5f7;
+  background: #171c22;
+  border-color: #343c45;
 }
 
 .hero-actions .button-primary:hover:not(:disabled) {
-  color: #111a22;
-  background: #f5f3ee;
-  border-color: #e1dfd9;
+  color: #fff;
+  background: #292f37;
+  border-color: #48515c;
 }
 
 .eyebrow {
