@@ -1744,3 +1744,16 @@ body,
 .finance-student-table .finance-amount-owed {
   color: #f3f5f7;
 }
+
+.request-fee,
+.dashboard-stats .debt-stat > strong,
+.outstanding-fees .dashboard-section-heading > strong,
+.fee-row strong,
+.finance-stat > strong,
+.finance-panel-heading > strong,
+.finance-chart-legend strong,
+.finance-student-table .finance-amount-owed,
+.fees-service-list li strong,
+.detail-facts > div:nth-child(2) > strong {
+  color: #fff;
+}
