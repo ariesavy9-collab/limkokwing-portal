@@ -408,9 +408,9 @@ body,
 .portal-menu-toggle,
 .portal-notification-button:hover,
 .portal-notification-button.active {
-  color: var(--ink);
-  background: #1a2835;
-  border-color: var(--line);
+  color: #17212b;
+  background: #e9e7e2;
+  border-color: #d3d5d6;
 }
 
 .portal-notification.unread {
@@ -481,18 +481,18 @@ body,
 .service-link,
 .button-text,
 .view-all-link {
-  color: #07151c;
-  background: #56c3e6;
-  border-color: #56c3e6;
+  color: #17212b;
+  background: #e9e7e2;
+  border-color: #d3d5d6;
 }
 
 .button-primary:hover:not(:disabled),
 .service-link:hover:not(:disabled),
 .button-text:hover:not(:disabled),
 .view-all-link:hover:not(:disabled) {
-  color: #07151c;
-  background: #8bdaf0;
-  border-color: #8bdaf0;
+  color: #111a22;
+  background: #f5f3ee;
+  border-color: #e1dfd9;
 }
 
 .button-outline,
@@ -504,9 +504,9 @@ body,
   justify-content: center;
   gap: 7px;
   padding: 0 12px;
-  color: #b6eafb;
-  background: #162733;
-  border: 1px solid #36566a;
+  color: #17212b;
+  background: #e9e7e2;
+  border: 1px solid #d3d5d6;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 650;
@@ -519,9 +519,9 @@ body,
 .button-outline:hover:not(:disabled),
 .text-button:hover:not(:disabled),
 .request-pdf-link:hover {
-  color: #effaff;
-  background: #20394a;
-  border-color: #56a8c8;
+  color: #111a22;
+  background: #f5f3ee;
+  border-color: #e1dfd9;
 }
 
 .service-link {
@@ -562,12 +562,16 @@ body,
 }
 
 .staff-tabs button {
-  color: var(--muted);
+  color: #17212b;
+  background: #e9e7e2;
+  border: 1px solid #d3d5d6;
+  border-radius: 6px;
 }
 
 .staff-tabs button.active {
-  color: var(--purple);
-  border-bottom-color: var(--purple);
+  color: #142a33;
+  background: #cfe7ef;
+  border-color: #9dcbd8;
 }
 
 .admin-service-item,
@@ -682,15 +686,15 @@ body,
 }
 
 .hero-actions .button-primary {
-  color: #07151c;
-  background: #56c3e6;
-  border-color: #56c3e6;
+  color: #17212b;
+  background: #e9e7e2;
+  border-color: #d3d5d6;
 }
 
 .hero-actions .button-primary:hover:not(:disabled) {
-  color: #07151c;
-  background: #8bdaf0;
-  border-color: #8bdaf0;
+  color: #111a22;
+  background: #f5f3ee;
+  border-color: #e1dfd9;
 }
 
 .eyebrow {
