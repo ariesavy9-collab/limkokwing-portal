@@ -37,7 +37,6 @@ import {
   deleteRequest,
   markAllNotificationsRead,
   markNotificationRead,
-  saveStudentProfile,
   subscribeToStudentLetters,
   subscribeToNotifications,
   setRequestFeeStatus,
@@ -259,10 +258,6 @@ function PortalApp() {
             user={user}
             profile={profile}
             profileError={authError}
-            onSaveProfile={async (details) => {
-              await saveStudentProfile(user, details);
-              setNotice({ type: 'success', message: 'Your student profile has been updated.' });
-            }}
             onSubscribeToLetters={subscribeToStudentLetters}
             onCancelRequest={async (id) => {
               await cancelStudentRequest(id);

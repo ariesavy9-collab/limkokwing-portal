@@ -42,8 +42,8 @@ service cloud.firestore {
     match /studentDirectory/{email} {
       allow read: if staff() || (signedIn() && request.auth.token.email == email);
       allow create, update: if staff()
-        && request.resource.data.keys().hasOnly(['name', 'email', 'studentId', 'dateOfBirth', 'birthPlace', 'phone', 'address', 'createdAt', 'updatedAt'])
-        && request.resource.data.keys().hasAll(['name', 'email', 'studentId', 'dateOfBirth', 'birthPlace', 'phone', 'address', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['name', 'email', 'studentId', 'dateOfBirth', 'birthPlace', 'phone', 'address', 'faculty', 'course', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['name', 'email', 'studentId', 'dateOfBirth', 'birthPlace', 'phone', 'address', 'faculty', 'course', 'createdAt', 'updatedAt'])
         && validName(request.resource.data.name, 20)
         && request.resource.data.email == email
         && request.resource.data.studentId.matches('^90[0-9]{7}$')
@@ -52,7 +52,9 @@ service cloud.firestore {
         && validText(request.resource.data.birthPlace, 2, 100)
         && request.resource.data.phone is string
         && request.resource.data.phone.matches('^\\+?[0-9]{8,15}$')
-        && validText(request.resource.data.address, 5, 240);
+        && validText(request.resource.data.address, 5, 240)
+        && validText(request.resource.data.faculty, 2, 120)
+        && validText(request.resource.data.course, 2, 120);
       allow delete: if false;
     }
 
@@ -81,26 +83,7 @@ service cloud.firestore {
         && request.resource.data.address.size() <= 240
         && (request.resource.data.phone == ''
           || request.resource.data.phone.matches('^\\+?[0-9]{8,15}$'));
-      allow update: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'phone', 'studentId', 'dateOfBirth', 'birthPlace', 'address', 'updatedAt'])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name'])
-          || (registeredStudent()
-            && request.resource.data.name == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.name))
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['studentId'])
-          || (registeredStudent()
-            && request.resource.data.studentId == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.studentId))
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['dateOfBirth'])
-          || (registeredStudent()
-            && request.resource.data.dateOfBirth == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.dateOfBirth))
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['birthPlace'])
-          || (registeredStudent()
-            && request.resource.data.birthPlace == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.birthPlace))
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone'])
-          || request.resource.data.phone.matches('^\\+?[0-9]{8,15}$'))
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['address'])
-          || (request.resource.data.address is string && request.resource.data.address.size() <= 240));
+      allow update: if false;
       allow delete: if false;
     }
 

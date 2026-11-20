@@ -8,10 +8,11 @@ import {
   setInquiryStatus,
   subscribeToAllStudentRequests,
   subscribeToPublicInquiries,
+  subscribeToStudentRecord,
   subscribeToStudentRecords,
   subscribeToStudentRequests,
 } from '../models/portalRepository';
-import { services as defaultServices } from '../models/services';
+import { courses, services as defaultServices } from '../models/services';
 
 function PageHeading({ eyebrow, title, description, action }) {
   return (
@@ -483,20 +484,39 @@ function getRequestFeeAmount(request) {
   return Number(fee.match(/[0-9]+(?:\.[0-9]+)?/)?.[0] || 0);
 }
 
-function StudentDashboard({ user, profile, profileError, onSaveProfile, onSubscribeToLetters, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
+function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
   const [requests, setRequests] = useState([]);
   const [letters, setLetters] = useState([]);
+  const [studentRecord, setStudentRecord] = useState(null);
+  const [studentRecordLoaded, setStudentRecordLoaded] = useState(false);
+  const [studentRecordError, setStudentRecordError] = useState('');
   const [letterError, setLetterError] = useState('');
   const [requestError, setRequestError] = useState('');
   const [filter, setFilter] = useState('All requests');
-  const [profileOpen, setProfileOpen] = useState(!profile?.studentId);
-  const [formError, setFormError] = useState('');
-  const [profileValidationErrors, setProfileValidationErrors] = useState([]);
-  const [savingProfile, setSavingProfile] = useState(false);
   const [cancellingId, setCancellingId] = useState('');
   const [editingId, setEditingId] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [savingRequestId, setSavingRequestId] = useState('');
+
+  useEffect(() => {
+    if (!user?.email) {
+      setStudentRecord(null);
+      setStudentRecordLoaded(false);
+      setStudentRecordError('');
+      return undefined;
+    }
+    setStudentRecord(null);
+    setStudentRecordLoaded(false);
+    setStudentRecordError('');
+    return subscribeToStudentRecord(user.email, (record) => {
+      setStudentRecord(record);
+      setStudentRecordLoaded(true);
+      setStudentRecordError('');
+    }, (error) => {
+      setStudentRecordLoaded(true);
+      setStudentRecordError(error.message || 'Your student details could not be loaded.');
+    });
+  }, [user?.email]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -514,36 +534,9 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onSubscr
     }, (error) => setLetterError(error.message || 'Letters could not be loaded.'));
   }, [onSubscribeToLetters, user?.email]);
 
-  useEffect(() => {
-    if (!profile?.studentId) setProfileOpen(true);
-  }, [profile?.studentId]);
-
   const visibleRequests = useMemo(() => (
     filter === 'All requests' ? requests : requests.filter((request) => request.status === filter)
   ), [filter, requests]);
-
-  const handleProfileSubmit = async (event) => {
-    event.preventDefault();
-    const errors = validateForm(event.currentTarget);
-    setProfileValidationErrors(errors);
-    if (errors.length) return;
-    setSavingProfile(true);
-    setFormError('');
-    const values = new FormData(event.currentTarget);
-    try {
-      await onSaveProfile({
-        name: values.get('profileName'),
-        studentId: values.get('profileStudentId'),
-        phone: values.get('profilePhone'),
-        address: values.get('profileAddress'),
-      });
-      setProfileOpen(false);
-    } catch (error) {
-      setFormError(error.message || 'Your profile could not be saved. Please try again.');
-    } finally {
-      setSavingProfile(false);
-    }
-  };
 
   const handleCancel = async (requestId) => {
     if (!window.confirm('Cancel this pending request?')) return;
@@ -592,33 +585,33 @@ function StudentDashboard({ user, profile, profileError, onSaveProfile, onSubscr
   const openCount = requests.filter((request) => ['Pending', 'Accepted', 'In Progress'].includes(request.status)).length;
   const unpaidRequests = requests.filter((request) => getRequestFeeAmount(request) > 0 && request.feeStatus !== 'Paid');
   const outstandingTotal = unpaidRequests.reduce((total, request) => total + getRequestFeeAmount(request), 0);
+  const studentDetails = { ...profile, ...studentRecord };
 
   return (
     <section className="content-wrap dashboard-wrap">
       <PageHeading
         eyebrow="YOUR STUDENT PORTAL"
-        title={`Good to see you${profile?.name ? `, ${profile.name.split(' ')[0]}` : ''}.`}
-        description="Manage your student information and keep an eye on your service requests."
-        action={<div className="dashboard-actions"><button className="button button-outline" type="button" onClick={() => setProfileOpen((open) => !open)}>{profileOpen ? 'Close profile' : 'Edit profile'}</button><button className="button button-primary" onClick={() => navigate('/services')}>New request</button></div>}
+        title={`Good to see you${studentDetails.name ? `, ${studentDetails.name.split(' ')[0]}` : ''}.`}
+        description="View your student information and keep an eye on your service requests."
+        action={<div className="dashboard-actions"><button className="button button-primary" onClick={() => navigate('/services')}>New request</button></div>}
       />
-      {(profileError || requestError || letterError) && <p className="form-alert form-alert-error" role="alert">{profileError || requestError || letterError}</p>}
+      {(profileError || studentRecordError || requestError || letterError) && <p className="form-alert form-alert-error" role="alert">{profileError || studentRecordError || requestError || letterError}</p>}
 
-      {profileOpen && (
-        <form className="profile-panel" noValidate onSubmit={handleProfileSubmit} onChange={(event) => handleFormInput(event, setProfileValidationErrors)}>
-          <div><span className="eyebrow">STUDENT PROFILE</span><h2>{profile?.studentId ? 'Your student details' : 'Complete your student profile'}</h2><p>Name, student number, and birth details are managed by the university.</p></div>
-          <div className="profile-fields">
-            <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" value={profile?.name || user.displayName || ''} readOnly required /></div>
-            <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" value={profile?.studentId || ''} readOnly required /></div>
-            <div className="form-field"><label htmlFor="profile-dob">Date of birth</label><input id="profile-dob" name="profileDateOfBirth" type="date" value={profile?.dateOfBirth || ''} readOnly /></div>
-            <div className="form-field"><label htmlFor="profile-birth-place">Place of birth</label><input id="profile-birth-place" name="profileBirthPlace" value={profile?.birthPlace || ''} readOnly /></div>
-            <div className="form-field"><label htmlFor="profile-phone">Mobile number</label><input id="profile-phone" name="profilePhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." defaultValue={profile?.phone || user.phoneNumber || ''} required maxLength="16" /><FieldValidationError fieldId="profile-phone" errors={profileValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="profile-address">Home address</label><textarea id="profile-address" name="profileAddress" defaultValue={profile?.address || ''} minLength="5" maxLength="240" required rows="3" /><FieldValidationError fieldId="profile-address" errors={profileValidationErrors} /></div>
-          </div>
-          <ValidationErrors errors={profileValidationErrors} />
-          {formError && <p className="form-alert form-alert-error" role="alert">{formError}</p>}
-          <button className="button button-primary" type="submit" disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Save student profile'}</button>
-        </form>
-      )}
+      <section className="profile-panel" aria-labelledby="student-profile-heading">
+        <div><span className="eyebrow">STUDENT PROFILE</span><h2 id="student-profile-heading">Your student details</h2><p>Your university record is managed by the administration. Contact Student Affairs if any information needs correction.</p></div>
+        {!studentRecordLoaded && <p className="form-intro" role="status">Loading your university record…</p>}
+        <div className="profile-fields">
+          <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" value={studentDetails.name || user.displayName || ''} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-email">Email address</label><input id="profile-email" name="profileEmail" value={studentDetails.email || user.email || ''} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" value={studentDetails.studentId || ''} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-faculty">Faculty</label><input id="profile-faculty" name="profileFaculty" value={studentDetails.faculty || (studentRecordLoaded ? 'Not assigned' : 'Loading…')} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-course">Course</label><input id="profile-course" name="profileCourse" value={studentDetails.course || (studentRecordLoaded ? 'Not assigned' : 'Loading…')} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-dob">Date of birth</label><input id="profile-dob" name="profileDateOfBirth" type="date" value={studentDetails.dateOfBirth || ''} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-birth-place">Place of birth</label><input id="profile-birth-place" name="profileBirthPlace" value={studentDetails.birthPlace || ''} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-phone">Mobile number</label><input id="profile-phone" name="profilePhone" value={studentDetails.phone || ''} readOnly /></div>
+          <div className="form-field"><label htmlFor="profile-address">Home address</label><textarea id="profile-address" name="profileAddress" value={studentDetails.address || ''} readOnly rows="3" /></div>
+        </div>
+      </section>
 
       <div className="dashboard-stats">
         <div><span>Total requests</span><strong>{requests.length}</strong><Icon name="document" size={19} /></div>
@@ -784,6 +777,8 @@ function AdminDashboard({
   const [staffError, setStaffError] = useState('');
   const [staffMessage, setStaffMessage] = useState('');
   const [staffValidationErrors, setStaffValidationErrors] = useState([]);
+  const [studentFaculty, setStudentFaculty] = useState('');
+  const [studentCourse, setStudentCourse] = useState('');
   const [letterRequestId, setLetterRequestId] = useState('');
   const [letterTitle, setLetterTitle] = useState('');
   const [letterBody, setLetterBody] = useState('');
@@ -824,8 +819,12 @@ function AdminDashboard({
     `${item.name} ${item.service} ${item.email} ${item.message}`.toLowerCase().includes(query.toLowerCase())
   )), [inquiries, query]);
   const filteredStudents = useMemo(() => students.filter((student) => (
-    `${student.name} ${student.studentId} ${student.email}`.toLowerCase().includes(query.toLowerCase())
+    `${student.name} ${student.studentId} ${student.email} ${student.faculty || ''} ${student.course || ''}`.toLowerCase().includes(query.toLowerCase())
   )), [query, students]);
+  const faculties = useMemo(() => [...new Set(courses.map((course) => course.faculty))], []);
+  const coursesForFaculty = studentFaculty
+    ? courses.filter((course) => course.faculty === studentFaculty)
+    : [];
 
   const openLetterEditor = (request) => {
     setLetterRequestId(request.id);
@@ -932,8 +931,12 @@ function AdminDashboard({
         birthPlace: values.get('studentBirthPlace'),
         phone: values.get('studentPhone'),
         address: values.get('studentAddress'),
+        faculty: values.get('studentFaculty'),
+        course: values.get('studentCourse'),
       });
       form.reset();
+      setStudentFaculty('');
+      setStudentCourse('');
       setStaffMessage('Student added to the database. They can now sign in with Google using this email address.');
     } catch (failure) {
       setStaffError(failure.message || 'The student could not be added.');
@@ -1003,8 +1006,8 @@ function AdminDashboard({
           <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => setSection('staff')}>Access & accounts</button>
         </div>
         {['requests', 'inquiries', 'students'].includes(section) && <>
-            <label className="visually-hidden" htmlFor="staff-search">Search by student number, email, or name</label>
-            <input id="staff-search" className="staff-search" type="search" placeholder="Search name, email, or student number" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <label className="visually-hidden" htmlFor="staff-search">Search by name, email, student number, faculty, or course</label>
+            <input id="staff-search" className="staff-search" type="search" placeholder="Search name, email, student number, faculty, or course" value={query} onChange={(event) => setQuery(event.target.value)} />
           </>}
       </div>
       {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
@@ -1062,6 +1065,8 @@ function AdminDashboard({
               <div><dt>Place of birth</dt><dd>{student.birthPlace || 'Not recorded'}</dd></div>
               <div><dt>Contact</dt><dd>{student.phone || 'Not recorded'}</dd></div>
               <div><dt>Address</dt><dd>{student.address || 'Not recorded'}</dd></div>
+              <div><dt>Faculty</dt><dd>{student.faculty || 'Not assigned'}</dd></div>
+              <div><dt>Course</dt><dd>{student.course || 'Not assigned'}</dd></div>
             </dl>
           </article>
         )) : <div className="empty-state"><h2>{query ? 'No matching students' : 'No students registered'}</h2><p>{query ? 'Search by student number, email, or name.' : 'Add students from Access & accounts.'}</p></div>}
@@ -1107,6 +1112,8 @@ function AdminDashboard({
             <div className="form-field"><label htmlFor="student-birth-place">Place of birth</label><input id="student-birth-place" name="studentBirthPlace" required minLength="2" maxLength="100" /></div>
             <div className="form-field"><label htmlFor="student-phone">Contact phone</label><input id="student-phone" name="studentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." required maxLength="16" /></div>
             <div className="form-field"><label htmlFor="student-address">Home address</label><textarea id="student-address" name="studentAddress" required minLength="5" maxLength="240" rows="3" /></div>
+            <div className="form-field"><label htmlFor="student-faculty">Faculty</label><select id="student-faculty" name="studentFaculty" value={studentFaculty} onChange={(event) => { setStudentFaculty(event.target.value); setStudentCourse(''); }} required><option value="">Select a faculty</option>{faculties.map((faculty) => <option key={faculty}>{faculty}</option>)}</select><FieldValidationError fieldId="student-faculty" errors={staffValidationErrors} /></div>
+            <div className="form-field"><label htmlFor="student-course">Course</label><select id="student-course" name="studentCourse" value={studentCourse} onChange={(event) => setStudentCourse(event.target.value)} required disabled={!studentFaculty}><option value="">Select a course</option>{coursesForFaculty.map((course) => <option key={course.id} value={course.name}>{course.name}</option>)}</select><FieldValidationError fieldId="student-course" errors={staffValidationErrors} /></div>
             <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Adding student…' : 'Add student'}</button>
           </form>
           <form className="request-form admin-account-form" noValidate onSubmit={handleGrantAdmin} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>

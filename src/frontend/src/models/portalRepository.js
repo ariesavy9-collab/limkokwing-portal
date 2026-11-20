@@ -32,17 +32,6 @@ export async function ensureUserProfile(user, initialDetails = {}) {
   };
 
   if (profile.exists()) {
-    const existingDetails = profile.data();
-    const missingDetails = {
-      updatedAt: details.updatedAt,
-      ...(details.name && existingDetails.name !== details.name ? { name: details.name } : {}),
-      ...(!existingDetails.phone && details.phone ? { phone: details.phone } : {}),
-      ...(details.studentId && existingDetails.studentId !== details.studentId ? { studentId: details.studentId } : {}),
-      ...(!existingDetails.address && details.address ? { address: details.address } : {}),
-      ...(details.dateOfBirth && existingDetails.dateOfBirth !== details.dateOfBirth ? { dateOfBirth: details.dateOfBirth } : {}),
-      ...(details.birthPlace && existingDetails.birthPlace !== details.birthPlace ? { birthPlace: details.birthPlace } : {}),
-    };
-    await setDoc(profileRef, missingDetails, { merge: true });
     return;
   }
 
@@ -60,14 +49,6 @@ export function subscribeToStudentProfile(uid, onProfile, onError) {
     (snapshot) => onProfile(snapshot.exists() ? snapshot.data() : null, snapshot.metadata.fromCache),
     onError,
   );
-}
-
-export async function saveStudentProfile(user, details) {
-  await setDoc(doc(db, 'users', user.uid), {
-    phone: details.phone.trim(),
-    address: details.address.trim(),
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
 }
 
 export async function createStudentRequest(uid, request) {
@@ -130,9 +111,19 @@ export async function createStudentRecord(student) {
     birthPlace: student.birthPlace.trim(),
     phone: student.phone.trim(),
     address: student.address.trim(),
+    faculty: student.faculty.trim(),
+    course: student.course.trim(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+}
+
+export function subscribeToStudentRecord(email, onRecord, onError) {
+  return onSnapshot(
+    doc(db, 'studentDirectory', email.trim().toLowerCase()),
+    (snapshot) => onRecord(snapshot.exists() ? snapshot.data() : null),
+    onError,
+  );
 }
 
 function watchCollection(collectionName, callback, onError, ownerUid) {

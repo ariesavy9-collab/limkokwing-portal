@@ -30,10 +30,10 @@ Cloud Functions deployment may require the Firebase project to use the Blaze bil
 - Successful requests and enquiries navigate to a confirmation page showing the submission reference, service, submitter details, date, and description, with direct navigation back to services or home.
 - Public course catalogue and fee information for prospective students. The Fees page shows published service fees and directs visitors to the university for tuition amounts until an official course fee schedule is available.
 - Google-only sign-in. Student Google accounts must match a student record added by an administrator; admin roles require both a Firestore role document and a Firebase custom claim.
-- Administrators register students with name, student number, email, date/place of birth, phone, and address. The directory can be searched by name, email, or student number; students can edit contact details but not registrar-controlled identity fields.
+- Administrators register students with name, student number, email, date/place of birth, phone, address, faculty, and course. The directory can be searched by name, email, student number, faculty, or course; students can view their full record but cannot edit it.
 - Administrators can remove a student and their portal account, profile, requests, notifications, and draft letters through a protected Cloud Function.
 - Recommendation requests can be turned into auto-filled, editable draft letters. Sending the letter accepts the request in the same Firestore batch; students can download the letter PDF, visibly marked as a non-official sample.
-- Validated student request submission with live request history, profile management, and edit/delete controls for pending requests. Student numbers must contain nine digits and start with `90` (for example, `901019217`).
+- Validated student request submission with live request history and edit/delete controls for pending requests. Student profile details are read-only and managed by the university. Student numbers must contain nine digits and start with `90` (for example, `901019217`).
 - Student dashboard fee ledger that records service-fee snapshots against requests and shows outstanding charges. Administrators can update payment status.
 - Staff-only request and enquiry management, student enrollment, admin-role grants for existing Google accounts, and service-directory updates.
 - Request PDFs can be downloaded from student and staff dashboards.
@@ -43,10 +43,10 @@ Cloud Functions deployment may require the Firebase project to use the Blaze bil
 
 Firestore does not support creating an empty collection on its own; a collection appears when its first document is written. The portal creates documents as people use it:
 
-- `studentDirectory` — Google email, name, and `90`-prefixed student number; created by an administrator before student sign-in.
+- `studentDirectory` — student identity, contact, faculty, and course details; created by an administrator before student sign-in and readable by the student whose email matches the document.
 - `studentLetters` — generated draft letters, readable by the addressed student and administrators only.
 - `adminUsers` — admin-role email records, paired with Firebase custom claims.
-- `users` — profile documents are written after an approved Google sign-in or when a student saves their profile.
+- `users` — profile documents are created after an approved Google sign-in; client updates are disabled.
 - `serviceRequests` — created when a signed-in student submits a service request.
 - `publicInquiries` — created when a visitor submits a public enquiry.
 - `services` — created when authorized staff add a custom service.

@@ -192,7 +192,6 @@ jest.mock('./models/portalRepository', () => ({
   deleteInquiry: jest.fn(),
   deleteRequest: jest.fn(),
   ensureUserProfile: jest.fn(),
-  saveStudentProfile: jest.fn(),
   sendStudentLetterAndAcceptRequest: jest.fn(),
   setInquiryStatus: jest.fn(),
   setRequestStatus: jest.fn(),
@@ -223,6 +222,10 @@ jest.mock('./models/portalRepository', () => ({
   subscribeToPublicInquiries: () => () => {},
   subscribeToStudentRecords: jest.fn((callback) => {
     callback([]);
+    return () => {};
+  }),
+  subscribeToStudentRecord: jest.fn((email, callback) => {
+    callback(null);
     return () => {};
   }),
   subscribeToStudentLetters: (email, callback) => {
@@ -542,7 +545,7 @@ test('request validation rejects overlong names and non-numeric student and phon
   expect(onStudentSubmit).not.toHaveBeenCalled();
 });
 
-test('requests page displays the current requests from its Firestore subscription', () => {
+test('student dashboard displays student details as read-only and shows academic assignment', () => {
   const { subscribeToStudentRequests } = require('./models/portalRepository');
   subscribeToStudentRequests.mockImplementation((uid, callback) => {
     callback([{
@@ -555,12 +558,26 @@ test('requests page displays the current requests from its Firestore subscriptio
     }]);
     return () => {};
   });
+  const { subscribeToStudentRecord } = require('./models/portalRepository');
+  subscribeToStudentRecord.mockImplementationOnce((email, callback) => {
+    callback({
+      name: 'Student Example',
+      email: 'student@example.com',
+      studentId: '901019217',
+      dateOfBirth: '2002-03-04',
+      birthPlace: 'Maseru',
+      phone: '+26650123456',
+      address: '12 Main Street, Maseru',
+      faculty: 'Faculty of Information & Communication Technology',
+      course: 'Diploma in Information Technology',
+    });
+    return () => {};
+  });
   render(
     <StudentDashboard
       user={{ uid: 'student-1', displayName: 'Student Example', email: 'student@example.com' }}
       profile={{ name: 'Student Example', studentId: '901019217' }}
       profileError=""
-      onSaveProfile={jest.fn()}
       onCancelRequest={jest.fn()}
       navigate={jest.fn()}
     />,
@@ -571,9 +588,14 @@ test('requests page displays the current requests from its Firestore subscriptio
   expect(screen.getAllByText('Accepted').length).toBeGreaterThan(0);
   expect(screen.getAllByText('M100.00').length).toBeGreaterThan(0);
   expect(screen.getByRole('heading', { name: 'Outstanding service fees' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Edit profile' }));
+  expect(screen.getByLabelText('Faculty')).toHaveValue('Faculty of Information & Communication Technology');
+  expect(screen.getByLabelText('Course')).toHaveValue('Diploma in Information Technology');
+  expect(screen.queryByRole('button', { name: 'Edit profile' })).not.toBeInTheDocument();
   expect(screen.getByLabelText('Full name')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Email address')).toHaveAttribute('readonly');
   expect(screen.getByLabelText('Student number')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Mobile number')).toHaveAttribute('readonly');
+  expect(screen.getByLabelText('Home address')).toHaveAttribute('readonly');
   expect(screen.getByLabelText('Date of birth')).toHaveAttribute('readonly');
   expect(screen.getByLabelText('Place of birth')).toHaveAttribute('readonly');
 });
@@ -633,6 +655,8 @@ test('staff can add a student record and grant admin access to Google accounts',
   fireEvent.change(screen.getByLabelText('Place of birth'), { target: { value: 'Maseru' } });
   fireEvent.change(screen.getByLabelText('Contact phone'), { target: { value: '+26650123456' } });
   fireEvent.change(screen.getByLabelText('Home address'), { target: { value: '12 Main Street, Maseru' } });
+  fireEvent.change(screen.getByLabelText('Faculty'), { target: { value: 'Faculty of Information & Communication Technology' } });
+  fireEvent.change(screen.getByLabelText('Course'), { target: { value: 'Diploma in Information Technology' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Add student' }).closest('form'));
 
   await waitFor(() => expect(onCreateStudent).toHaveBeenCalledWith({
@@ -643,6 +667,8 @@ test('staff can add a student record and grant admin access to Google accounts',
     birthPlace: 'Maseru',
     phone: '+26650123456',
     address: '12 Main Street, Maseru',
+    faculty: 'Faculty of Information & Communication Technology',
+    course: 'Diploma in Information Technology',
   }));
 
   fireEvent.change(document.querySelector('#admin-email'), { target: { value: 'admin@example.com' } });
