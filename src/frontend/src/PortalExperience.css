@@ -1711,8 +1711,8 @@ body,
 .portal-notification-button,
 .hero-actions .button-primary {
   color: #f3f5f7;
-  background-color: #11161c;
-  border-color: #343c45;
+  background-color: #173344;
+  border-color: #315464;
 }
 
 .button:not(.button-danger):not(.delete-link):hover:not(:disabled),
