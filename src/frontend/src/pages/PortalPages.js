@@ -307,11 +307,6 @@ function CoursesPage({ courses = [], navigate }) {
             : <button className="button button-outline" onClick={() => navigate('/contact')}>Contact the university</button>}
         </div>
       )}
-      <aside className="public-note">
-        <Icon name="message" size={20} />
-        <p><strong>Need help choosing?</strong> Ask the university team about course availability, entry requirements, and application dates.</p>
-        <button className="text-button" onClick={() => navigate('/contact')}>Contact us</button>
-      </aside>
     </section>
   );
 }
