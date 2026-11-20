@@ -1628,6 +1628,70 @@ body,
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+.portal-main,
+.portal-content,
+.dashboard-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.staff-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.staff-tabs {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 8px;
+  overflow: visible;
+}
+
+.staff-tabs button {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: normal;
+}
+
+.staff-tabs button span {
+  margin-left: auto;
+}
+
+.staff-search-wrap,
+.staff-search {
+  width: 100%;
+  min-width: 0;
+}
+
+.staff-record,
+.staff-record-header,
+.staff-record-actions {
+  min-width: 0;
+}
+
+.staff-record-header {
+  flex-wrap: wrap;
+}
+
+.staff-record-header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.staff-record-actions {
+  justify-content: flex-start;
+}
+
+.staff-record-actions .select-control {
+  max-width: 100%;
 
   .profile-toggle {
     align-self: flex-start;
