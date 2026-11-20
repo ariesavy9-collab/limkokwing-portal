@@ -1696,8 +1696,40 @@ body,
 
 .staff-record-actions .select-control {
   max-width: 100%;
+}
 
-  .profile-toggle {
-    align-self: flex-start;
-  }
+.profile-toggle {
+  align-self: flex-start;
+}
+
+.button:not(.button-danger):not(.delete-link),
+.text-button:not(.delete-link),
+.service-link,
+.view-all-link,
+.staff-tabs button,
+.portal-menu-toggle,
+.portal-notification-button,
+.hero-actions .button-primary {
+  color: #f3f5f7;
+  background-color: #11161c;
+  border-color: #343c45;
+}
+
+.button:not(.button-danger):not(.delete-link):hover:not(:disabled),
+.text-button:not(.delete-link):hover:not(:disabled),
+.service-link:hover:not(:disabled),
+.view-all-link:hover:not(:disabled),
+.staff-tabs button:hover:not(:disabled),
+.portal-menu-toggle:hover,
+.portal-notification-button:hover,
+.hero-actions .button-primary:hover:not(:disabled) {
+  color: #fff;
+  background-color: #0755d9;
+  border-color: #0755d9;
+}
+
+.staff-tabs button.active {
+  color: #fff;
+  background-color: #0755d9;
+  border-color: #0755d9;
 }
