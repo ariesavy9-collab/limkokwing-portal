@@ -94,11 +94,30 @@ export async function createService(service) {
     processingTime: service.processingTime.trim(),
     fee: service.fee.trim() || 'No fee',
     studentOnly: service.studentOnly,
+    icon: service.icon,
     active: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
   return reference.id;
+}
+
+export async function saveAcademicOptions(options) {
+  await setDoc(doc(db, 'portalSettings', 'academicOptions'), {
+    faculties: options.faculties,
+    courses: options.courses,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export function subscribeToAcademicOptions(callback, onError) {
+  return onSnapshot(
+    doc(db, 'portalSettings', 'academicOptions'),
+    (snapshot) => callback(snapshot.exists()
+      ? snapshot.data()
+      : { faculties: [], courses: [] }),
+    onError,
+  );
 }
 
 export async function createStudentRecord(student) {

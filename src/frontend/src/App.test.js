@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 import SiteLayout from './components/SiteLayout';
@@ -16,6 +16,20 @@ import {
 } from './pages/PortalPages';
 import { services } from './models/services';
 import { validateForm } from './models/formValidation';
+
+const subscribeToAcademicOptions = (callback) => {
+  callback({
+    faculties: [
+      'Faculty of Information & Communication Technology',
+      'Faculty of Business Management and Globalisation',
+    ],
+    courses: [
+      { faculty: 'Faculty of Information & Communication Technology', name: 'Diploma in Information Technology' },
+      { faculty: 'Faculty of Business Management and Globalisation', name: 'Diploma in Marketing' },
+    ],
+  });
+  return () => {};
+};
 
 test('form validation distinguishes personal names from other fields containing "name"', () => {
   const form = document.createElement('form');
@@ -95,6 +109,39 @@ test('account menu shows the Google profile photo and signs out from its menu', 
   fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
 
   expect(onSignOut).toHaveBeenCalledTimes(1);
+});
+
+test('admin navigation hides public university links and help content', () => {
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <SiteLayout
+        currentPath="/staff"
+        currentSection="requests"
+        user={{ displayName: 'Portal Admin', email: 'admin@example.com' }}
+        isAdmin
+        loading={false}
+        isOnline
+        onSignIn={jest.fn()}
+        onSignOut={jest.fn()}
+        onOpenNotifications={jest.fn()}
+        navigate={jest.fn()}
+      >
+        <div>Portal content</div>
+      </SiteLayout>
+    </MemoryRouter>,
+  );
+
+  const adminNavigation = screen.getByRole('navigation', { name: 'Administration navigation' });
+  expect(adminNavigation).toBeInTheDocument();
+  expect(within(adminNavigation).getByRole('link', { name: /request queue/i })).toBeInTheDocument();
+  expect(within(adminNavigation).getByRole('link', { name: 'Academic options' })).toBeInTheDocument();
+  expect(screen.queryByRole('navigation', { name: 'University information' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Public services' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Courses' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Tuition & fees' })).not.toBeInTheDocument();
+  expect(screen.queryByText('Need assistance?')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Help' })).not.toBeInTheDocument();
 });
 
 test('contact form blocks digits in names and letters in phone numbers', async () => {
@@ -197,6 +244,20 @@ jest.mock('./models/portalRepository', () => ({
   setRequestStatus: jest.fn(),
   setRequestFeeStatus: jest.fn(),
   updateStudentRequest: jest.fn(),
+  saveAcademicOptions: jest.fn(),
+  subscribeToAcademicOptions: jest.fn((callback) => {
+    callback({
+      faculties: [
+        'Faculty of Information & Communication Technology',
+        'Faculty of Business Management and Globalisation',
+      ],
+      courses: [
+        { faculty: 'Faculty of Information & Communication Technology', name: 'Diploma in Information Technology' },
+        { faculty: 'Faculty of Business Management and Globalisation', name: 'Diploma in Marketing' },
+      ],
+    });
+    return () => {};
+  }),
   markAllNotificationsRead: jest.fn(),
   markNotificationRead: jest.fn(),
   subscribeToNotifications: (uid, callback) => {
@@ -645,6 +706,7 @@ test('staff can add a student record and grant admin access to Google accounts',
       onCreateStudent={onCreateStudent}
       onGrantAdminAccess={onGrantAdminAccess}
       onSetFeeStatus={jest.fn()}
+      onSubscribeToAcademicOptions={subscribeToAcademicOptions}
       initialSection="staff"
     />,
   );
@@ -652,13 +714,20 @@ test('staff can add a student record and grant admin access to Google accounts',
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Student Example' } });
   fireEvent.change(document.querySelector('#student-email'), { target: { value: 'student@example.com' } });
   fireEvent.change(screen.getByLabelText('Student number'), { target: { value: '901019217' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(screen.getByRole('progressbar', { name: 'Student record progress' })).toHaveAttribute('aria-valuenow', '2');
   fireEvent.change(screen.getByLabelText('Date of birth'), { target: { value: '2002-03-04' } });
   fireEvent.change(screen.getByLabelText('Place of birth'), { target: { value: 'Maseru' } });
   fireEvent.change(screen.getByLabelText('Contact phone'), { target: { value: '+26650123456' } });
   fireEvent.change(screen.getByLabelText('Home address'), { target: { value: '12 Main Street, Maseru' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(screen.getByRole('progressbar', { name: 'Student record progress' })).toHaveAttribute('aria-valuenow', '3');
   fireEvent.change(screen.getByLabelText('Faculty'), { target: { value: 'Faculty of Information & Communication Technology' } });
   fireEvent.change(screen.getByLabelText('Course'), { target: { value: 'Diploma in Information Technology' } });
-  fireEvent.submit(screen.getByRole('button', { name: 'Add student' }).closest('form'));
+  const studentForm = screen.getByRole('button', { name: 'Add student' }).closest('form');
+  expect(screen.getByLabelText('Faculty')).toHaveValue('Faculty of Information & Communication Technology');
+  expect(screen.getByLabelText('Course')).toHaveValue('Diploma in Information Technology');
+  fireEvent.submit(studentForm);
 
   await waitFor(() => expect(onCreateStudent).toHaveBeenCalledWith({
     name: 'Student Example',
@@ -675,6 +744,69 @@ test('staff can add a student record and grant admin access to Google accounts',
   fireEvent.change(document.querySelector('#admin-email'), { target: { value: 'admin@example.com' } });
   fireEvent.submit(screen.getByRole('button', { name: /grant admin access/i }).closest('form'));
   await waitFor(() => expect(onGrantAdminAccess).toHaveBeenCalledWith('admin@example.com'));
+});
+
+test('faculty and course management is a separate admin page', async () => {
+  const onSaveAcademicOptions = jest.fn().mockResolvedValue(undefined);
+  render(
+    <AdminDashboard
+      services={services}
+      onCreateService={jest.fn()}
+      onUpdateStatus={jest.fn()}
+      onDeleteRequest={jest.fn()}
+      onSetFeeStatus={jest.fn()}
+      onSubscribeToAcademicOptions={subscribeToAcademicOptions}
+      onSaveAcademicOptions={onSaveAcademicOptions}
+      initialSection="academics"
+    />,
+  );
+
+  expect(screen.getByRole('heading', { name: 'Faculty and course choices' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Add a student' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Add an admin' })).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Faculty name'), { target: { value: 'Faculty of Design' } });
+  fireEvent.submit(screen.getByRole('button', { name: 'Add faculty' }).closest('form'));
+
+  await waitFor(() => expect(onSaveAcademicOptions).toHaveBeenCalledWith(expect.objectContaining({
+    faculties: expect.arrayContaining(['Faculty of Design']),
+  })));
+});
+
+test('admin can choose service visibility and an icon', async () => {
+  const onCreateService = jest.fn().mockResolvedValue('service-1');
+  const { container } = render(
+    <AdminDashboard
+      services={services}
+      onCreateService={onCreateService}
+      onUpdateStatus={jest.fn()}
+      onDeleteRequest={jest.fn()}
+      onSetFeeStatus={jest.fn()}
+      onSubscribeToAcademicOptions={subscribeToAcademicOptions}
+      initialSection="services"
+    />,
+  );
+
+  fireEvent.change(screen.getByLabelText('Service name'), { target: { value: 'Transcript replacement' } });
+  fireEvent.change(screen.getByLabelText('Responsible department'), { target: { value: 'Student Affairs' } });
+  fireEvent.change(screen.getByLabelText('Typical processing time'), { target: { value: '5 working days' } });
+  fireEvent.change(screen.getByLabelText('Fee'), { target: { value: 'M50' } });
+  fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Request a replacement copy of a lost student transcript.' } });
+  fireEvent.change(screen.getByLabelText('Service visibility'), { target: { value: 'public' } });
+  fireEvent.change(screen.getByLabelText('Service icon'), { target: { value: 'university' } });
+  expect(screen.getByLabelText('Service icon')).toHaveValue('university');
+  expect(container.querySelector('.service-icon-preview svg')).toBeInTheDocument();
+  fireEvent.submit(screen.getByRole('button', { name: 'Add service to directory' }).closest('form'));
+
+  await waitFor(() => expect(onCreateService).toHaveBeenCalledWith({
+    name: 'Transcript replacement',
+    description: 'Request a replacement copy of a lost student transcript.',
+    department: 'Student Affairs',
+    processingTime: '5 working days',
+    fee: 'M50',
+    studentOnly: false,
+    icon: 'university',
+  }));
+  await waitFor(() => expect(screen.getByLabelText('Service icon')).toHaveValue('document'));
 });
 
 test('admin sends an auto-filled letter and accepts the recommendation request', async () => {
@@ -757,6 +889,37 @@ test('admin can remove a student from the searchable directory', async () => {
   confirm.mockRestore();
 });
 
+test('admin groups student records by faculty and filters the directory', () => {
+  const { subscribeToStudentRecords } = require('./models/portalRepository');
+  subscribeToStudentRecords.mockImplementationOnce((callback) => {
+    callback([
+      { name: 'Alex Student', email: 'alex@example.com', studentId: '901019217', faculty: 'Faculty A', course: 'Course A' },
+      { name: 'Sam Student', email: 'sam@example.com', studentId: '901019218', faculty: 'Faculty B', course: 'Course B' },
+    ]);
+    return () => {};
+  });
+  render(
+    <AdminDashboard
+      services={services}
+      onCreateService={jest.fn()}
+      onUpdateStatus={jest.fn()}
+      onDeleteRequest={jest.fn()}
+      onCreateStudent={jest.fn()}
+      onGrantAdminAccess={jest.fn()}
+      onSetFeeStatus={jest.fn()}
+      onSendLetterAndAcceptRequest={jest.fn()}
+      onDeleteStudent={jest.fn()}
+      initialSection="students"
+    />,
+  );
+
+  expect(screen.getByRole('heading', { name: 'Faculty A' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Faculty B' })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Filter by faculty'), { target: { value: 'Faculty B' } });
+  expect(screen.getByText('Sam Student')).toBeInTheDocument();
+  expect(screen.queryByText('Alex Student')).not.toBeInTheDocument();
+});
+
 test('admin can edit a student record and change the faculty and course assignment', async () => {
   const { subscribeToStudentRecords } = require('./models/portalRepository');
   subscribeToStudentRecords.mockImplementationOnce((callback) => {
@@ -786,6 +949,7 @@ test('admin can edit a student record and change the faculty and course assignme
       onSendLetterAndAcceptRequest={jest.fn()}
       onDeleteStudent={jest.fn()}
       onUpdateStudent={onUpdateStudent}
+      onSubscribeToAcademicOptions={subscribeToAcademicOptions}
       adminEmail="admin@example.com"
       initialSection="students"
     />,
@@ -795,7 +959,10 @@ test('admin can edit a student record and change the faculty and course assignme
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Updated Student' } });
   fireEvent.change(screen.getByLabelText('Faculty'), { target: { value: 'Faculty of Business Management and Globalisation' } });
   fireEvent.change(screen.getByLabelText('Course'), { target: { value: 'Diploma in Marketing' } });
-  fireEvent.submit(screen.getByRole('button', { name: 'Save student details' }).closest('form'));
+  const editForm = screen.getByRole('button', { name: 'Save student details' }).closest('form');
+  expect(screen.getByLabelText('Faculty')).toHaveValue('Faculty of Business Management and Globalisation');
+  expect(screen.getByLabelText('Course')).toHaveValue('Diploma in Marketing');
+  fireEvent.submit(editForm);
 
   await waitFor(() => expect(onUpdateStudent).toHaveBeenCalledWith('student@example.com', expect.objectContaining({
     name: 'Updated Student',

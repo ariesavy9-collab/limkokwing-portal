@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import Icon from '../components/Icon';
+import Icon, { ICON_NAMES } from '../components/Icon';
 import ValidationErrors, { FieldValidationError } from '../components/ValidationErrors';
 import universityLogo from '../logo.png';
+import AcademicOptionsPage from './admin/AcademicOptionsPage';
 import { handleFormInput, validateForm } from '../models/formValidation';
 import {
   deleteInquiry,
   setInquiryStatus,
+  saveAcademicOptions,
   subscribeToAllStudentRequests,
   subscribeToPublicInquiries,
+  subscribeToAcademicOptions,
   subscribeToStudentRecord,
   subscribeToStudentRecords,
   subscribeToStudentRequests,
@@ -26,6 +29,26 @@ function PageHeading({ eyebrow, title, description, action }) {
     </div>
   );
 }
+
+function normalizeAcademicOptions(options = {}) {
+  const faculties = Array.isArray(options.faculties)
+    ? [...new Set(options.faculties.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean))]
+      .sort((first, second) => first.localeCompare(second))
+    : [];
+  const courses = Array.isArray(options.courses)
+    ? options.courses.filter((item) => (
+      item && typeof item.faculty === 'string' && typeof item.name === 'string'
+      && faculties.includes(item.faculty.trim()) && item.name.trim()
+    )).map((item) => ({ faculty: item.faculty.trim(), name: item.name.trim() }))
+    : [];
+  return { faculties, courses };
+}
+
+const studentFormSteps = [
+  { title: 'Identity', description: 'Basic student details' },
+  { title: 'Contact details', description: 'Personal and contact information' },
+  { title: 'Academic programme', description: 'Faculty and course assignment' },
+];
 
 async function downloadRequestPdf(request) {
   const { jsPDF } = await import('jspdf');
@@ -226,7 +249,7 @@ function ServicesPage({ navigate, user, services, serviceError }) {
       {serviceError && <p className="form-alert form-alert-error" role="alert">{serviceError}</p>}
       <div className="service-filter">
         <label className="visually-hidden" htmlFor="service-search">Search university services</label>
-        <Icon name="message" size={18} />
+        <Icon name="search" size={18} />
         <input id="service-search" type="search" placeholder="Search by service or department…" value={query} onChange={(event) => setQuery(event.target.value)} />
         <span>{filteredServices.length} {filteredServices.length === 1 ? 'service' : 'services'}</span>
       </div>
@@ -257,7 +280,7 @@ function CoursesPage({ courses = [], navigate }) {
       />
       <div className="service-filter">
         <label className="visually-hidden" htmlFor="course-search">Search courses and faculties</label>
-        <Icon name="university" size={18} />
+        <Icon name="search" size={18} />
         <input id="course-search" type="search" placeholder="Search by course or faculty…" value={search} onChange={(event) => setSearch(event.target.value)} />
         <span>{filteredCourses.length} {filteredCourses.length === 1 ? 'course' : 'courses'}</span>
       </div>
@@ -760,8 +783,11 @@ function AdminDashboard({
   onSendLetterAndAcceptRequest,
   onDeleteStudent,
   onUpdateStudent,
+  onSubscribeToAcademicOptions = subscribeToAcademicOptions,
+  onSaveAcademicOptions = saveAcademicOptions,
   adminEmail,
   initialSection = 'requests',
+  navigate,
 }) {
   const [requests, setRequests] = useState([]);
   const [inquiries, setInquiries] = useState([]);
@@ -774,6 +800,7 @@ function AdminDashboard({
   const [serviceError, setServiceError] = useState('');
   const [serviceMessage, setServiceMessage] = useState('');
   const [serviceValidationErrors, setServiceValidationErrors] = useState([]);
+  const [newServiceIcon, setNewServiceIcon] = useState('document');
   const [staffBusy, setStaffBusy] = useState(false);
   const [staffError, setStaffError] = useState('');
   const [staffMessage, setStaffMessage] = useState('');
@@ -784,6 +811,17 @@ function AdminDashboard({
   const [letterValidationErrors, setLetterValidationErrors] = useState([]);
   const [deletingStudentEmail, setDeletingStudentEmail] = useState('');
   const [editingStudentEmail, setEditingStudentEmail] = useState('');
+  const [academicOptions, setAcademicOptions] = useState({ faculties: [], courses: [] });
+  const [academicError, setAcademicError] = useState('');
+  const [academicMessage, setAcademicMessage] = useState('');
+  const [academicBusy, setAcademicBusy] = useState(false);
+  const [newStudentFaculty, setNewStudentFaculty] = useState('');
+  const [newStudentCourse, setNewStudentCourse] = useState('');
+  const [newStudentStep, setNewStudentStep] = useState(0);
+  const [editingStudentFaculty, setEditingStudentFaculty] = useState('');
+  const [editingStudentCourse, setEditingStudentCourse] = useState('');
+  const [studentFacultyFilter, setStudentFacultyFilter] = useState('all');
+  const [courseFaculty, setCourseFaculty] = useState('');
 
   useEffect(() => setSection(initialSection), [initialSection]);
 
@@ -812,6 +850,13 @@ function AdminDashboard({
     };
   }, []);
 
+  useEffect(() => onSubscribeToAcademicOptions((options) => {
+    setAcademicOptions(normalizeAcademicOptions(options));
+    setAcademicError('');
+  }, (failure) => {
+    setAcademicError(failure.message || 'Academic choices could not be loaded.');
+  }), [onSubscribeToAcademicOptions]);
+
   const filteredRequests = useMemo(() => requests.filter((request) => (
     `${request.studentName} ${request.studentId} ${request.service} ${request.email}`.toLowerCase().includes(query.toLowerCase())
   )), [query, requests]);
@@ -821,6 +866,30 @@ function AdminDashboard({
   const filteredStudents = useMemo(() => students.filter((student) => (
     `${student.name} ${student.studentId} ${student.email} ${student.faculty || ''} ${student.course || ''}`.toLowerCase().includes(query.toLowerCase())
   )), [query, students]);
+  const facultyFilterOptions = useMemo(() => [...new Set([
+    ...academicOptions.faculties,
+    ...students.map((student) => student.faculty).filter(Boolean),
+  ])].sort((first, second) => first.localeCompare(second)), [academicOptions.faculties, students]);
+  const visibleStudents = filteredStudents.filter((student) => (
+    studentFacultyFilter === 'all' || student.faculty === studentFacultyFilter
+  ));
+  const studentGroups = useMemo(() => {
+    const groups = new Map();
+    visibleStudents.forEach((student) => {
+      const faculty = student.faculty || 'Faculty not assigned';
+      groups.set(faculty, [...(groups.get(faculty) || []), student]);
+    });
+    return [...groups.entries()]
+      .sort(([first], [second]) => first.localeCompare(second))
+      .map(([faculty, groupStudents]) => [
+        faculty,
+        groupStudents.sort((first, second) => first.name.localeCompare(second.name)),
+      ]);
+  }, [visibleStudents]);
+  const coursesForFaculty = (faculty) => academicOptions.courses
+    .filter((course) => course.faculty === faculty)
+    .map((course) => course.name);
+
   const openLetterEditor = (request) => {
     setLetterRequestId(request.id);
     setLetterTitle(`${request.service} - ${request.studentName}`);
@@ -850,6 +919,96 @@ function AdminDashboard({
     } finally {
       setBusyId('');
     }
+  };
+
+  const persistAcademicOptions = async (nextOptions, message) => {
+    setAcademicBusy(true);
+    setAcademicError('');
+    setAcademicMessage('');
+    try {
+      await onSaveAcademicOptions(nextOptions);
+      setAcademicOptions(nextOptions);
+      setAcademicMessage(message);
+      return true;
+    } catch (failure) {
+      setAcademicError(failure.message || 'Academic choices could not be saved.');
+      return false;
+    } finally {
+      setAcademicBusy(false);
+    }
+  };
+
+  const handleAddFaculty = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const faculty = new FormData(form).get('newFaculty').trim();
+    if (!faculty) {
+      setAcademicError('Enter a faculty name.');
+      return;
+    }
+    if (academicOptions.faculties.some((item) => item.toLowerCase() === faculty.toLowerCase())) {
+      setAcademicError('That faculty is already in the list.');
+      return;
+    }
+    const saved = await persistAcademicOptions({
+      ...academicOptions,
+      faculties: [...academicOptions.faculties, faculty].sort((first, second) => first.localeCompare(second)),
+    }, `${faculty} was added to the faculty list.`);
+    if (saved) form.reset();
+  };
+
+  const handleAddCourse = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    const faculty = values.get('courseFaculty');
+    const name = values.get('courseName').trim();
+    if (!name) {
+      setAcademicError('Enter a course name.');
+      return;
+    }
+    if (academicOptions.courses.some((course) => (
+      course.faculty === faculty && course.name.toLowerCase() === name.toLowerCase()
+    ))) {
+      setAcademicError('That course is already listed for this faculty.');
+      return;
+    }
+    const saved = await persistAcademicOptions({
+      ...academicOptions,
+      courses: [...academicOptions.courses, { faculty, name }]
+        .sort((first, second) => first.name.localeCompare(second.name)),
+    }, `${name} was added to ${faculty}.`);
+    if (saved) {
+      form.reset();
+      setCourseFaculty(faculty);
+    }
+  };
+
+  const handleRemoveFaculty = async (faculty) => {
+    if (!window.confirm(`Remove "${faculty}" and its course choices from future student entries? Existing student records will remain unchanged.`)) return;
+    const nextOptions = {
+      faculties: academicOptions.faculties.filter((item) => item !== faculty),
+      courses: academicOptions.courses.filter((course) => course.faculty !== faculty),
+    };
+    const saved = await persistAcademicOptions(nextOptions, `${faculty} was removed from future choices.`);
+    if (saved) {
+      if (courseFaculty === faculty) setCourseFaculty('');
+      if (newStudentFaculty === faculty) {
+        setNewStudentFaculty('');
+        setNewStudentCourse('');
+      }
+    }
+  };
+
+  const handleRemoveCourse = async (course) => {
+    if (!window.confirm(`Remove "${course.name}" from future student entries? Existing student records will remain unchanged.`)) return;
+    const nextOptions = {
+      ...academicOptions,
+      courses: academicOptions.courses.filter((item) => (
+        item.faculty !== course.faculty || item.name !== course.name
+      )),
+    };
+    await persistAcademicOptions(nextOptions, `${course.name} was removed from future choices.`);
   };
 
   const updateStatus = async (id, status) => {
@@ -896,9 +1055,11 @@ function AdminDashboard({
         department: values.get('serviceDepartment'),
         processingTime: values.get('serviceProcessingTime'),
         fee: values.get('serviceFee'),
-        studentOnly: values.get('serviceStudentOnly') === 'on',
+        studentOnly: values.get('serviceVisibility') === 'students',
+        icon: values.get('serviceIcon'),
       });
       form.reset();
+      setNewServiceIcon('document');
       setServiceMessage(`Service added to the directory (reference ${id}).`);
     } catch (failure) {
       setServiceError(failure.message || 'The service could not be added.');
@@ -910,10 +1071,21 @@ function AdminDashboard({
   const handleCreateStudent = async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+    if (newStudentStep < studentFormSteps.length - 1) {
+      handleNextStudentStep(form);
+      return;
+    }
     const errors = validateForm(form);
     setStaffValidationErrors(errors);
     if (errors.length) return;
     const values = new FormData(form);
+    const faculty = values.get('studentFaculty');
+    const course = values.get('studentCourse');
+    if (!academicOptions.faculties.includes(faculty)
+      || !academicOptions.courses.some((item) => item.faculty === faculty && item.name === course)) {
+      setStaffError('Choose a faculty and course from the current academic options.');
+      return;
+    }
     setStaffBusy(true);
     setStaffError('');
     setStaffMessage('');
@@ -930,6 +1102,9 @@ function AdminDashboard({
         course: values.get('studentCourse'),
       });
       form.reset();
+      setNewStudentFaculty('');
+      setNewStudentCourse('');
+      setNewStudentStep(0);
       setStaffMessage('Student added to the database. They can now sign in with Google using this email address.');
     } catch (failure) {
       setStaffError(failure.message || 'The student could not be added.');
@@ -938,8 +1113,18 @@ function AdminDashboard({
     }
   };
 
+  const handleNextStudentStep = (form) => {
+    const stepFields = form.querySelector(`[data-student-step="${newStudentStep}"]`);
+    const errors = validateForm(stepFields);
+    setStaffValidationErrors(errors);
+    if (errors.length) return;
+    setNewStudentStep((step) => Math.min(step + 1, studentFormSteps.length - 1));
+  };
+
   const openStudentEditor = (student) => {
     setEditingStudentEmail(student.email);
+    setEditingStudentFaculty(student.faculty || '');
+    setEditingStudentCourse(student.course || '');
     setStaffValidationErrors([]);
     setStaffError('');
   };
@@ -966,6 +1151,8 @@ function AdminDashboard({
         course: values.get('editStudentCourse'),
       });
       setEditingStudentEmail('');
+      setEditingStudentFaculty('');
+      setEditingStudentCourse('');
       setStaffMessage(`Details updated for ${student.name}.`);
     } catch (failure) {
       setStaffError(failure.message || 'The student details could not be updated.');
@@ -1023,20 +1210,37 @@ function AdminDashboard({
     }
   };
 
+  const sectionDetails = {
+    requests: { title: 'Request queue', description: 'Review incoming student requests and update their progress.' },
+    inquiries: { title: 'Public enquiries', description: 'Respond to messages from students, applicants, and visitors.' },
+    students: { title: 'Student directory', description: 'Find, update, and manage approved student records.' },
+    services: { title: 'Service setup', description: 'Control service visibility and configure the public directory.' },
+    staff: { title: 'Staff access', description: 'Add student records and manage authorized staff access.' },
+    academics: { title: 'Academic options', description: 'Manage faculty and course choices for student records.' },
+  };
+  const changeSection = (nextSection) => {
+    setSection(nextSection);
+    if (navigate) navigate(`/staff?view=${nextSection}`);
+  };
+
   return (
     <section className="content-wrap dashboard-wrap">
-      <PageHeading eyebrow="AUTHORIZED STAFF" title="Service management" description="Review incoming requests and enquiries, update progress, and keep students informed." />
+      <PageHeading eyebrow="ADMINISTRATION" title={sectionDetails[section].title} description={sectionDetails[section].description} />
       <div className="staff-controls">
         <div className="staff-tabs" role="tablist" aria-label="Staff record type">
-          <button role="tab" aria-selected={section === 'requests'} className={section === 'requests' ? 'active' : ''} onClick={() => setSection('requests')}>Student requests <span>{requests.length}</span></button>
-          <button role="tab" aria-selected={section === 'inquiries'} className={section === 'inquiries' ? 'active' : ''} onClick={() => setSection('inquiries')}>Public enquiries <span>{inquiries.length}</span></button>
-          <button role="tab" aria-selected={section === 'services'} className={section === 'services' ? 'active' : ''} onClick={() => setSection('services')}>Services <span>{services.length}</span></button>
-          <button role="tab" aria-selected={section === 'students'} className={section === 'students' ? 'active' : ''} onClick={() => setSection('students')}>Students <span>{students.length}</span></button>
-          <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => setSection('staff')}>Access & accounts</button>
+          <button role="tab" aria-selected={section === 'requests'} className={section === 'requests' ? 'active' : ''} onClick={() => changeSection('requests')}><Icon name="document" size={16} />Request queue <span>{requests.length}</span></button>
+          <button role="tab" aria-selected={section === 'inquiries'} className={section === 'inquiries' ? 'active' : ''} onClick={() => changeSection('inquiries')}><Icon name="message" size={16} />Public enquiries <span>{inquiries.length}</span></button>
+          <button role="tab" aria-selected={section === 'services'} className={section === 'services' ? 'active' : ''} onClick={() => changeSection('services')}><Icon name="grid" size={16} />Service setup <span>{services.length}</span></button>
+          <button role="tab" aria-selected={section === 'students'} className={section === 'students' ? 'active' : ''} onClick={() => changeSection('students')}><Icon name="id" size={16} />Student directory <span>{students.length}</span></button>
+          <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => changeSection('staff')}><Icon name="shield" size={16} />Staff access</button>
+          <button role="tab" aria-selected={section === 'academics'} className={section === 'academics' ? 'active' : ''} onClick={() => changeSection('academics')}><Icon name="university" size={16} />Academic options</button>
         </div>
         {['requests', 'inquiries', 'students'].includes(section) && <>
             <label className="visually-hidden" htmlFor="staff-search">Search by name, email, student number, faculty, or course</label>
-            <input id="staff-search" className="staff-search" type="search" placeholder="Search name, email, student number, faculty, or course" value={query} onChange={(event) => setQuery(event.target.value)} />
+            <div className="staff-search-wrap">
+              <Icon name="search" size={17} />
+              <input id="staff-search" className="staff-search" type="search" placeholder="Search name, email, student number, faculty, or course" value={query} onChange={(event) => setQuery(event.target.value)} />
+            </div>
           </>}
       </div>
       {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
@@ -1085,36 +1289,82 @@ function AdminDashboard({
         ))}
         {filteredInquiries.length === 0 && <div className="empty-state"><h2>{query ? 'No matching enquiries' : 'No public enquiries yet'}</h2><p>New public enquiries will appear here as they are received.</p></div>}
       </div>}
-      {section === 'students' && <div className="student-directory-list">
-        {filteredStudents.length ? filteredStudents.map((student) => (
-          <article className="student-directory-record" key={student.email}>
-            <div className="student-directory-record-heading"><div><h2>{student.name}</h2><span>{student.studentId} · {student.email}</span></div><div className="detail-actions"><button className="button button-outline" type="button" disabled={staffBusy || deletingStudentEmail === student.email} onClick={() => editingStudentEmail === student.email ? setEditingStudentEmail('') : openStudentEditor(student)}>{editingStudentEmail === student.email ? 'Cancel edit' : 'Edit details'}</button><button className="button button-outline delete-link" type="button" disabled={deletingStudentEmail === student.email || staffBusy} onClick={() => handleDeleteStudent(student)}>{deletingStudentEmail === student.email ? 'Removing…' : 'Delete student'}</button></div></div>
-            {editingStudentEmail === student.email && <form className="request-form student-edit-form" noValidate onSubmit={(event) => handleUpdateStudent(event, student)} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
-              <p className="form-intro">Update this student's university record. The sign-in email address cannot be changed here.</p>
-              <div className="profile-fields">
-                <div className="form-field"><label htmlFor={`edit-student-name-${student.studentId}`}>Full name</label><input id={`edit-student-name-${student.studentId}`} name="editStudentName" defaultValue={student.name} required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /></div>
-                <div className="form-field"><label htmlFor={`edit-student-id-${student.studentId}`}>Student number</label><input id={`edit-student-id-${student.studentId}`} name="editStudentId" defaultValue={student.studentId} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" /></div>
-                <div className="form-field"><label htmlFor={`edit-student-dob-${student.studentId}`}>Date of birth</label><input id={`edit-student-dob-${student.studentId}`} name="editStudentDateOfBirth" type="date" defaultValue={student.dateOfBirth || ''} required /></div>
-                <div className="form-field"><label htmlFor={`edit-student-birth-place-${student.studentId}`}>Place of birth</label><input id={`edit-student-birth-place-${student.studentId}`} name="editStudentBirthPlace" defaultValue={student.birthPlace || ''} required minLength="2" maxLength="100" /></div>
-                <div className="form-field"><label htmlFor={`edit-student-phone-${student.studentId}`}>Contact phone</label><input id={`edit-student-phone-${student.studentId}`} name="editStudentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." defaultValue={student.phone || ''} required maxLength="16" /></div>
-                <div className="form-field"><label htmlFor={`edit-student-address-${student.studentId}`}>Home address</label><textarea id={`edit-student-address-${student.studentId}`} name="editStudentAddress" defaultValue={student.address || ''} required minLength="5" maxLength="240" rows="3" /></div>
-                <div className="form-field"><label htmlFor={`edit-student-faculty-${student.studentId}`}>Faculty</label><input id={`edit-student-faculty-${student.studentId}`} name="editStudentFaculty" defaultValue={student.faculty || ''} required minLength="2" maxLength="120" /></div>
-                <div className="form-field"><label htmlFor={`edit-student-course-${student.studentId}`}>Course</label><input id={`edit-student-course-${student.studentId}`} name="editStudentCourse" defaultValue={student.course || ''} required minLength="2" maxLength="120" /></div>
+      {section === 'students' && <>
+        <div className="student-directory-toolbar">
+          <label htmlFor="student-faculty-filter">Filter by faculty</label>
+          <select id="student-faculty-filter" className="select-control" value={studentFacultyFilter} onChange={(event) => setStudentFacultyFilter(event.target.value)}>
+            <option value="all">All faculties</option>
+            {facultyFilterOptions.map((faculty) => <option key={faculty} value={faculty}>{faculty}</option>)}
+          </select>
+          <span>{visibleStudents.length} {visibleStudents.length === 1 ? 'student' : 'students'}</span>
+        </div>
+        <div className="student-directory-list">
+          {studentGroups.length ? studentGroups.map(([faculty, groupStudents]) => (
+            <section className="student-faculty-group" key={faculty} aria-labelledby={`faculty-heading-${faculty.replace(/[^A-Za-z0-9]/g, '-')}`}>
+              <div className="student-faculty-heading">
+                <Icon name="university" size={18} />
+                <h2 id={`faculty-heading-${faculty.replace(/[^A-Za-z0-9]/g, '-')}`}>{faculty}</h2>
+                <span>{groupStudents.length}</span>
               </div>
-              <ValidationErrors errors={staffValidationErrors} />
-              <button className="button button-primary" type="submit" disabled={staffBusy}>{staffBusy ? 'Saving details…' : 'Save student details'}</button>
-            </form>}
-            <dl className="student-directory-details">
-              <div><dt>Date of birth</dt><dd>{student.dateOfBirth || 'Not recorded'}</dd></div>
-              <div><dt>Place of birth</dt><dd>{student.birthPlace || 'Not recorded'}</dd></div>
-              <div><dt>Contact</dt><dd>{student.phone || 'Not recorded'}</dd></div>
-              <div><dt>Address</dt><dd>{student.address || 'Not recorded'}</dd></div>
-              <div><dt>Faculty</dt><dd>{student.faculty || 'Not assigned'}</dd></div>
-              <div><dt>Course</dt><dd>{student.course || 'Not assigned'}</dd></div>
-            </dl>
-          </article>
-        )) : <div className="empty-state"><h2>{query ? 'No matching students' : 'No students registered'}</h2><p>{query ? 'Search by student number, email, or name.' : 'Add students from Access & accounts.'}</p></div>}
-      </div>}
+              {groupStudents.map((student) => {
+                const facultyOptions = [...new Set([
+                  student.faculty,
+                  ...academicOptions.faculties,
+                ].filter(Boolean))].sort((first, second) => first.localeCompare(second));
+                const editCourseOptions = coursesForFaculty(editingStudentFaculty);
+                const courseOptions = editingStudentEmail === student.email
+                  && student.course && editingStudentFaculty === student.faculty
+                  && !editCourseOptions.includes(student.course)
+                  ? [student.course, ...editCourseOptions]
+                  : editCourseOptions;
+                return (
+                  <article className="student-directory-record" key={student.email}>
+                    <div className="student-directory-record-heading">
+                      <div><h3>{student.name}</h3><span>{student.studentId} · {student.email}</span></div>
+                      <div className="detail-actions">
+                        <button className="button button-outline" type="button" disabled={staffBusy || deletingStudentEmail === student.email} onClick={() => {
+                          if (editingStudentEmail === student.email) {
+                            setEditingStudentEmail('');
+                            setEditingStudentFaculty('');
+                            setEditingStudentCourse('');
+                          } else openStudentEditor(student);
+                        }}>{editingStudentEmail === student.email ? 'Cancel edit' : 'Edit details'}</button>
+                        <button className="button button-outline delete-link" type="button" disabled={deletingStudentEmail === student.email || staffBusy} onClick={() => handleDeleteStudent(student)}>{deletingStudentEmail === student.email ? 'Removing…' : 'Delete student'}</button>
+                      </div>
+                    </div>
+                    {editingStudentEmail === student.email && <form className="request-form student-edit-form" noValidate onSubmit={(event) => handleUpdateStudent(event, student)} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
+                      <p className="form-intro">Update this student's university record. The sign-in email address cannot be changed here.</p>
+                      <div className="profile-fields">
+                        <div className="form-field"><label htmlFor={`edit-student-name-${student.studentId}`}>Full name</label><input id={`edit-student-name-${student.studentId}`} name="editStudentName" defaultValue={student.name} required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /></div>
+                        <div className="form-field"><label htmlFor={`edit-student-id-${student.studentId}`}>Student number</label><input id={`edit-student-id-${student.studentId}`} name="editStudentId" defaultValue={student.studentId} inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" /></div>
+                        <div className="form-field"><label htmlFor={`edit-student-dob-${student.studentId}`}>Date of birth</label><input id={`edit-student-dob-${student.studentId}`} name="editStudentDateOfBirth" type="date" defaultValue={student.dateOfBirth || ''} required /></div>
+                        <div className="form-field"><label htmlFor={`edit-student-birth-place-${student.studentId}`}>Place of birth</label><input id={`edit-student-birth-place-${student.studentId}`} name="editStudentBirthPlace" defaultValue={student.birthPlace || ''} required minLength="2" maxLength="100" /></div>
+                        <div className="form-field"><label htmlFor={`edit-student-phone-${student.studentId}`}>Contact phone</label><input id={`edit-student-phone-${student.studentId}`} name="editStudentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." defaultValue={student.phone || ''} required maxLength="16" /></div>
+                        <div className="form-field"><label htmlFor={`edit-student-address-${student.studentId}`}>Home address</label><textarea id={`edit-student-address-${student.studentId}`} name="editStudentAddress" defaultValue={student.address || ''} required minLength="5" maxLength="240" rows="3" /></div>
+                        <div className="form-field"><label htmlFor={`edit-student-faculty-${student.studentId}`}>Faculty</label><select id={`edit-student-faculty-${student.studentId}`} name="editStudentFaculty" value={editingStudentFaculty} required onChange={(event) => {
+                          setEditingStudentFaculty(event.target.value);
+                          setEditingStudentCourse('');
+                        }}><option value="">Select faculty</option>{facultyOptions.map((facultyOption) => <option key={facultyOption} value={facultyOption}>{facultyOption}</option>)}</select></div>
+                        <div className="form-field"><label htmlFor={`edit-student-course-${student.studentId}`}>Course</label><select id={`edit-student-course-${student.studentId}`} name="editStudentCourse" value={editingStudentCourse} required disabled={!editingStudentFaculty || !courseOptions.length} onChange={(event) => setEditingStudentCourse(event.target.value)}><option value="">Select course</option>{courseOptions.map((course) => <option key={course} value={course}>{course}</option>)}</select></div>
+                      </div>
+                      <ValidationErrors errors={staffValidationErrors} />
+                      <button className="button button-primary" type="submit" disabled={staffBusy}>{staffBusy ? 'Saving details…' : 'Save student details'}</button>
+                    </form>}
+                    <dl className="student-directory-details">
+                      <div><dt>Date of birth</dt><dd>{student.dateOfBirth || 'Not recorded'}</dd></div>
+                      <div><dt>Place of birth</dt><dd>{student.birthPlace || 'Not recorded'}</dd></div>
+                      <div><dt>Contact</dt><dd>{student.phone || 'Not recorded'}</dd></div>
+                      <div><dt>Address</dt><dd>{student.address || 'Not recorded'}</dd></div>
+                      <div><dt>Faculty</dt><dd>{student.faculty || 'Not assigned'}</dd></div>
+                      <div><dt>Course</dt><dd>{student.course || 'Not assigned'}</dd></div>
+                    </dl>
+                  </article>
+                );
+              })}
+            </section>
+          )) : <div className="empty-state"><h2>{query ? 'No matching students' : 'No students registered'}</h2><p>{query ? 'Try another student name, number, or faculty.' : 'Add students from Staff access.'}</p></div>}
+        </div>
+      </>}
       {section === 'services' && <div className="admin-management-grid">
         <form className="request-form admin-create-form" noValidate onSubmit={handleCreateService} onChange={(event) => handleFormInput(event, setServiceValidationErrors)}>
           <span className="eyebrow">SERVICE DIRECTORY</span>
@@ -1125,7 +1375,23 @@ function AdminDashboard({
           <div className="form-field"><label htmlFor="service-processing-time">Typical processing time</label><input id="service-processing-time" name="serviceProcessingTime" required maxLength="60" placeholder="e.g. 2 working days" /><FieldValidationError fieldId="service-processing-time" errors={serviceValidationErrors} /></div>
           <div className="form-field"><label htmlFor="service-fee">Fee</label><input id="service-fee" name="serviceFee" required maxLength="40" placeholder="No fee" /><FieldValidationError fieldId="service-fee" errors={serviceValidationErrors} /></div>
           <div className="form-field"><label htmlFor="service-description">Description</label><textarea id="service-description" name="serviceDescription" required minLength="10" maxLength="500" rows="4" /><FieldValidationError fieldId="service-description" errors={serviceValidationErrors} /></div>
-          <label className="checkbox-field"><input type="checkbox" name="serviceStudentOnly" defaultChecked /><span>Available to registered students only</span></label>
+          <div className="form-field">
+            <label htmlFor="service-visibility">Service visibility</label>
+            <select id="service-visibility" name="serviceVisibility" defaultValue="students">
+              <option value="public">Public - visible to everyone</option>
+              <option value="students">Private - signed-in students</option>
+            </select>
+          </div>
+          <div className="form-field">
+            <label htmlFor="service-icon">Service icon</label>
+            <div className="service-icon-picker">
+              <select id="service-icon" name="serviceIcon" value={newServiceIcon} onChange={(event) => setNewServiceIcon(event.target.value)}>
+              {['document', ...ICON_NAMES.filter((iconName) => iconName !== 'document')]
+                .map((iconName) => <option key={iconName} value={iconName}>{iconName.replace(/([A-Z])/g, ' $1')}</option>)}
+              </select>
+              <span className="service-icon-preview" aria-label={`Selected icon: ${newServiceIcon}`}><Icon name={newServiceIcon} size={22} /></span>
+            </div>
+          </div>
           <ValidationErrors errors={serviceValidationErrors} />
           {serviceError && <p className="form-alert form-alert-error" role="alert">{serviceError}</p>}
           {serviceMessage && <p className="form-alert form-alert-success" role="status">{serviceMessage}</p>}
@@ -1144,34 +1410,83 @@ function AdminDashboard({
         </section>
       </div>}
       {section === 'staff' && <section className="admin-access-panel">
-        <div className="admin-access-grid">
-          <form className="request-form admin-account-form" noValidate onSubmit={handleCreateStudent} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
+        <div className="admin-access-grid staff-management-grid">
+          <form className="request-form admin-account-form student-create-form" noValidate onSubmit={handleCreateStudent} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
             <span className="eyebrow">STUDENT DIRECTORY</span>
             <h2>Add a student</h2>
-            <p className="form-intro">Enter the student's verified identity and contact details. Use faculty and programme names exactly as shown in current Lesotho campus records; the <a href="https://limkokwing.net/lesotho-home/" target="_blank" rel="noreferrer">public campus page</a> does not publish a current programme catalogue.</p>
-            <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="student-email">Google account email</label><input id="student-email" name="studentEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="student-email" errors={staffValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="student-number">Student number</label><input id="student-number" name="studentId" inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="student-number" errors={staffValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="student-date-of-birth">Date of birth</label><input id="student-date-of-birth" name="studentDateOfBirth" type="date" required /></div>
-            <div className="form-field"><label htmlFor="student-birth-place">Place of birth</label><input id="student-birth-place" name="studentBirthPlace" required minLength="2" maxLength="100" /></div>
-            <div className="form-field"><label htmlFor="student-phone">Contact phone</label><input id="student-phone" name="studentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." required maxLength="16" /></div>
-            <div className="form-field"><label htmlFor="student-address">Home address</label><textarea id="student-address" name="studentAddress" required minLength="5" maxLength="240" rows="3" /></div>
-            <div className="form-field"><label htmlFor="student-faculty">Faculty</label><input id="student-faculty" name="studentFaculty" required minLength="2" maxLength="120" placeholder="Enter the official Lesotho campus faculty name" /><FieldValidationError fieldId="student-faculty" errors={staffValidationErrors} /></div>
-            <div className="form-field"><label htmlFor="student-course">Course</label><input id="student-course" name="studentCourse" required minLength="2" maxLength="120" placeholder="Enter the official programme name" /><FieldValidationError fieldId="student-course" errors={staffValidationErrors} /></div>
-            <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Adding student…' : 'Add student'}</button>
+            <p className="form-intro">Enter the student's verified details. Faculty and course options are managed by staff.</p>
+            <div className="student-form-progress">
+              <ol aria-label="Student record steps">
+                {studentFormSteps.map((step, index) => (
+                  <li key={step.title} className={index === newStudentStep ? 'active' : index < newStudentStep ? 'complete' : ''} aria-current={index === newStudentStep ? 'step' : undefined}>
+                    <span className="student-form-step-number">{index < newStudentStep ? '✓' : index + 1}</span>
+                    <span><strong>{step.title}</strong><small>{step.description}</small></span>
+                  </li>
+                ))}
+              </ol>
+              <div className="student-form-progress-track" role="progressbar" aria-label="Student record progress" aria-valuemin={1} aria-valuemax={studentFormSteps.length} aria-valuenow={newStudentStep + 1}>
+                <span style={{ width: `${((newStudentStep + 1) / studentFormSteps.length) * 100}%` }} />
+              </div>
+              <p>Step {newStudentStep + 1} of {studentFormSteps.length}</p>
+            </div>
+            <fieldset className="student-form-step" data-student-step="0" hidden={newStudentStep !== 0}>
+              <legend>Student identity</legend>
+              <div className="form-field"><label htmlFor="student-name">Full name</label><input id="student-name" name="studentName" required minLength="2" maxLength="20" pattern="[A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?: [A-Za-zÀ-ÖØ-öø-ÿ'’.-]+)*" data-validation-type="name" /><FieldValidationError fieldId="student-name" errors={staffValidationErrors} /></div>
+              <div className="form-field"><label htmlFor="student-email">Google account email</label><input id="student-email" name="studentEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="student-email" errors={staffValidationErrors} /></div>
+              <div className="form-field"><label htmlFor="student-number">Student number</label><input id="student-number" name="studentId" inputMode="numeric" pattern="90[0-9]{7}" data-validation-type="studentId" data-validation-message="Student number must contain 9 digits and start with 90." required maxLength="9" placeholder="e.g. 901019217" /><FieldValidationError fieldId="student-number" errors={staffValidationErrors} /></div>
+            </fieldset>
+            <fieldset className="student-form-step" data-student-step="1" hidden={newStudentStep !== 1}>
+              <legend>Contact details</legend>
+              <div className="form-field"><label htmlFor="student-date-of-birth">Date of birth</label><input id="student-date-of-birth" name="studentDateOfBirth" type="date" required /></div>
+              <div className="form-field"><label htmlFor="student-birth-place">Place of birth</label><input id="student-birth-place" name="studentBirthPlace" required minLength="2" maxLength="100" /></div>
+              <div className="form-field"><label htmlFor="student-phone">Contact phone</label><input id="student-phone" name="studentPhone" type="tel" inputMode="tel" pattern="[+]?[0-9]{8,15}" data-validation-type="phone" data-validation-message="Enter a phone number using digits only, with an optional leading +." required maxLength="16" /></div>
+              <div className="form-field"><label htmlFor="student-address">Home address</label><textarea id="student-address" name="studentAddress" required minLength="5" maxLength="240" rows="3" /></div>
+            </fieldset>
+            <fieldset className="student-form-step" data-student-step="2" hidden={newStudentStep !== 2}>
+              <legend>Academic programme</legend>
+              <div className="form-field"><label htmlFor="student-faculty">Faculty</label><select id="student-faculty" name="studentFaculty" value={newStudentFaculty} required onChange={(event) => {
+                setNewStudentFaculty(event.target.value);
+                setNewStudentCourse('');
+              }}><option value="">Select faculty</option>{academicOptions.faculties.map((faculty) => <option key={faculty} value={faculty}>{faculty}</option>)}</select><FieldValidationError fieldId="student-faculty" errors={staffValidationErrors} /></div>
+              <div className="form-field"><label htmlFor="student-course">Course</label><select id="student-course" name="studentCourse" value={newStudentCourse} required disabled={!newStudentFaculty || !coursesForFaculty(newStudentFaculty).length} onChange={(event) => setNewStudentCourse(event.target.value)}><option value="">Select course</option>{coursesForFaculty(newStudentFaculty).map((course) => <option key={course} value={course}>{course}</option>)}</select><FieldValidationError fieldId="student-course" errors={staffValidationErrors} /></div>
+            </fieldset>
+            <div className="student-form-actions">
+              {newStudentStep > 0 && <button className="button button-outline" type="button" onClick={() => {
+                setStaffValidationErrors([]);
+                setNewStudentStep((step) => step - 1);
+              }}>Previous</button>}
+              {newStudentStep < studentFormSteps.length - 1
+                ? <button className="button button-primary" type="button" onClick={(event) => handleNextStudentStep(event.currentTarget.closest('form'))}>Next</button>
+                : <button className="button button-primary" type="submit" disabled={staffBusy}>{staffBusy ? 'Adding student…' : 'Add student'}</button>}
+            </div>
           </form>
-          <form className="request-form admin-account-form" noValidate onSubmit={handleGrantAdmin} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
-            <span className="eyebrow">ADMINISTRATOR ACCESS</span>
-            <h2>Add an admin</h2>
-            <p className="form-intro">The person must have signed in with Google once so Firebase can find their account.</p>
-            <div className="form-field"><label htmlFor="admin-email">Google account email</label><input id="admin-email" name="adminEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="admin-email" errors={staffValidationErrors} /></div>
-            <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Granting access…' : 'Grant admin access'}</button>
-          </form>
+          <div className="staff-management-side">
+            <form className="request-form admin-account-form" noValidate onSubmit={handleGrantAdmin} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
+              <span className="eyebrow">ADMINISTRATOR ACCESS</span>
+              <h2>Add an admin</h2>
+              <p className="form-intro">The person must have signed in with Google once so Firebase can find their account.</p>
+              <div className="form-field"><label htmlFor="admin-email">Google account email</label><input id="admin-email" name="adminEmail" type="email" required maxLength="254" /><FieldValidationError fieldId="admin-email" errors={staffValidationErrors} /></div>
+              <button className="button button-primary form-submit" disabled={staffBusy}>{staffBusy ? 'Granting access…' : 'Grant admin access'}</button>
+            </form>
+            <ValidationErrors errors={staffValidationErrors} />
+            {staffError && <p className="form-alert form-alert-error" role="alert">{staffError}</p>}
+            {staffMessage && <p className="form-alert form-alert-success" role="status">{staffMessage}</p>}
+          </div>
         </div>
-        <ValidationErrors errors={staffValidationErrors} />
-        {staffError && <p className="form-alert form-alert-error" role="alert">{staffError}</p>}
-        {staffMessage && <p className="form-alert form-alert-success" role="status">{staffMessage}</p>}
       </section>}
+      {section === 'academics' && <AcademicOptionsPage
+        options={academicOptions}
+        busy={academicBusy}
+        error={academicError}
+        message={academicMessage}
+        courseFaculty={courseFaculty}
+        coursesForFaculty={coursesForFaculty}
+        onCourseFacultyChange={setCourseFaculty}
+        onAddFaculty={handleAddFaculty}
+        onAddCourse={handleAddCourse}
+        onRemoveFaculty={handleRemoveFaculty}
+        onRemoveCourse={handleRemoveCourse}
+      />}
     </section>
   );
 }

@@ -30,6 +30,7 @@ import { courses, findService as findDefaultService } from './models/services';
 import {
   cancelStudentRequest,
   createService,
+  saveAcademicOptions,
   createPublicInquiry,
   createStudentRecord,
   createStudentRequest,
@@ -39,6 +40,7 @@ import {
   markNotificationRead,
   subscribeToStudentLetters,
   subscribeToNotifications,
+  subscribeToAcademicOptions,
   setRequestFeeStatus,
   setRequestStatus,
   sendStudentLetterAndAcceptRequest,
@@ -127,7 +129,12 @@ function PortalApp() {
   const location = useLocation();
   const routerNavigate = useNavigate();
   const path = location.pathname;
-  const staffSection = new URLSearchParams(location.search).get('view') === 'accounts' ? 'staff' : 'requests';
+  const requestedStaffSection = new URLSearchParams(location.search).get('view');
+  const staffSection = requestedStaffSection === 'accounts'
+    ? 'staff'
+    : ['requests', 'inquiries', 'students', 'services', 'staff', 'academics'].includes(requestedStaffSection)
+      ? requestedStaffSection
+      : 'requests';
   const requestRoute = path.match(/^\/request\/([^/]+)$/);
   const findService = (id) => services.find((service) => service.id === id) || findDefaultService(id);
   const protectedRequest = requestRoute ? findService(requestRoute[1])?.studentOnly : false;
@@ -223,6 +230,7 @@ function PortalApp() {
   );
   const layoutProps = {
     currentPath: path,
+    currentSection: staffSection,
     user,
     isAdmin,
     loading,
@@ -289,8 +297,11 @@ function PortalApp() {
             onSetFeeStatus={setRequestFeeStatus}
             onDeleteStudent={removeStudent}
             onUpdateStudent={updateStudentRecord}
+            onSubscribeToAcademicOptions={subscribeToAcademicOptions}
+            onSaveAcademicOptions={saveAcademicOptions}
             adminEmail={user.email}
             initialSection={staffSection}
+            navigate={navigate}
           />
         ) : <div className="content-wrap" role="status">Checking staff access…</div>} />
         <Route path="contact" element={<ContactPage onSubmit={createPublicInquiry} />} />

@@ -6,6 +6,7 @@ import Icon from './Icon';
 function SiteLayout({
   children,
   currentPath,
+  currentSection = 'requests',
   user,
   isAdmin,
   loading,
@@ -13,7 +14,6 @@ function SiteLayout({
   unreadNotificationCount = 0,
   onOpenNotifications,
   onSignIn,
-  onStudentAccess,
   onSignOut,
   notice,
   onDismissNotice,
@@ -26,20 +26,70 @@ function SiteLayout({
   const helpWidget = useRef(null);
   const accountMenu = useRef(null);
   const accountMenuButton = useRef(null);
-  const links = [
-    { label: 'Dashboard', path: '/' },
-    { label: 'Services', path: '/services' },
-    { label: 'My Requests', path: '/student', protected: true },
-    { label: 'Help & contact', path: '/contact' },
+  const publicSections = [
+    {
+      title: 'Explore',
+      label: 'Public navigation',
+      links: [
+        { label: 'Home', path: '/', icon: 'home' },
+        { label: 'Services', path: '/services', icon: 'grid' },
+        { label: 'Courses', path: '/courses', icon: 'university' },
+        { label: 'Tuition & fees', path: '/fees', icon: 'document' },
+        { label: 'Help & contact', path: '/contact', icon: 'message' },
+      ],
+    },
   ];
+  const studentSections = [
+    {
+      title: 'Student space',
+      label: 'Student navigation',
+      links: [
+        { label: 'Student home', path: '/student', icon: 'user' },
+        { label: 'Browse services', path: '/services', icon: 'grid' },
+        { label: 'Notifications', path: '/notifications', icon: 'bell' },
+      ],
+    },
+    {
+      title: 'University',
+      label: 'University information',
+      links: [
+        { label: 'Home', path: '/', icon: 'home' },
+        { label: 'Courses', path: '/courses', icon: 'university' },
+        { label: 'Tuition & fees', path: '/fees', icon: 'document' },
+        { label: 'Help & contact', path: '/contact', icon: 'message' },
+      ],
+    },
+  ];
+  const adminSections = [
+    {
+      title: 'Administration',
+      label: 'Administration navigation',
+      links: [
+        { label: 'Request queue', path: '/staff?view=requests', section: 'requests', icon: 'document' },
+        { label: 'Public enquiries', path: '/staff?view=inquiries', section: 'inquiries', icon: 'message' },
+        { label: 'Student directory', path: '/staff?view=students', section: 'students', icon: 'id' },
+        { label: 'Service setup', path: '/staff?view=services', section: 'services', icon: 'grid' },
+        { label: 'Staff access', path: '/staff?view=staff', section: 'staff', icon: 'shield' },
+        { label: 'Academic options', path: '/staff?view=academics', section: 'academics', icon: 'university' },
+      ],
+    },
+  ];
+  const navigationSections = isAdmin ? adminSections : user ? studentSections : publicSections;
   const titles = {
-    '/': 'Student Service Request System',
-    '/student': 'My Requests',
+    '/': 'University home',
+    '/student': 'Student home',
     '/services': 'Services',
     '/courses': 'Courses and programmes',
     '/fees': 'Tuition and fees',
     '/contact': 'Help & support',
-    '/staff': 'Manage Requests (Admin)',
+    '/staff': {
+      requests: 'Request queue',
+      inquiries: 'Public enquiries',
+      students: 'Student directory',
+      services: 'Service setup',
+      staff: 'Staff access',
+      academics: 'Academic options',
+    }[currentSection],
     '/notifications': 'Notifications',
   };
   const activePath = currentPath.startsWith('/request/')
@@ -49,8 +99,22 @@ function SiteLayout({
       : currentPath === '/submitted'
         ? '/contact'
         : currentPath;
-  const pageTitle = titles[currentPath] || (currentPath.startsWith('/request/') ? 'Submit a service request' : 'Student Service Request System');
+  const pageTitle = titles[currentPath] || (currentPath.startsWith('/request/') ? 'Submit a service request' : 'University home');
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Student';
+  const mobileLinks = isAdmin
+    ? adminSections[0].links.slice(0, 4)
+    : user
+      ? [
+        studentSections[0].links[0],
+        studentSections[0].links[1],
+        studentSections[0].links[2],
+        studentSections[1].links[0],
+      ]
+      : publicSections[0].links.filter((link) => ['Home', 'Services', 'Courses', 'Help & contact'].includes(link.label));
+
+  const isActiveLink = (link) => link.section
+    ? currentPath === '/staff' && currentSection === link.section
+    : activePath === link.path;
 
   useEffect(() => {
     document.title = `${pageTitle} | Limkokwing Student Service Request System`;
@@ -91,13 +155,6 @@ function SiteLayout({
     };
   }, [accountMenuOpen]);
 
-  const handleLink = (link) => {
-    setMenuOpen(false);
-    setHelpOpen(false);
-    if (link.protected) onStudentAccess();
-    else navigate(link.path);
-  };
-
   return (
     <div className="portal-shell">
       <aside className={`portal-sidebar${menuOpen ? ' portal-sidebar-open' : ''}`}>
@@ -105,62 +162,35 @@ function SiteLayout({
           <img className="portal-brand-logo" src={universityLogo} alt="Limkokwing University" />
         </Link>
         <div className="portal-nav-group">
-          <p className="portal-nav-label">Student portal</p>
-          <nav aria-label="Student portal navigation">
-            {!user && (
-              <button className="portal-nav-link portal-sign-in-link" onClick={() => { setMenuOpen(false); onSignIn(); }}>
-                <Icon name="user" size={17} />
-                Sign in with Google
-              </button>
-            )}
-            {links.map((link) => {
-              const active = link.label === 'Services'
-                  ? activePath === '/services' && !currentPath.startsWith('/request/')
-                  : activePath === link.path;
-              const className = `portal-nav-link${active ? ' active' : ''}`;
-              return link.protected ? (
-                <button
-                  key={`${link.label}-${link.path}`}
-                  className={className}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => handleLink(link)}
-                >
-                  {link.label}
-                </button>
-              ) : (
-                <Link
-                  key={`${link.label}-${link.path}`}
-                  to={link.path}
-                  className={className}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => { setMenuOpen(false); setHelpOpen(false); }}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <p className="portal-nav-label portal-help-label">University information</p>
-          <nav aria-label="University information">
-            <Link to="/courses" className={`portal-nav-link${currentPath === '/courses' ? ' active' : ''}`} onClick={() => setMenuOpen(false)}>
-              Courses
-            </Link>
-            <Link to="/fees" className={`portal-nav-link${currentPath === '/fees' ? ' active' : ''}`} onClick={() => setMenuOpen(false)}>
-              Tuition & fees
-            </Link>
-            {isAdmin && (
-              <Link to="/staff" className={`portal-nav-link${currentPath === '/staff' ? ' active' : ''}`} onClick={() => setMenuOpen(false)}>
-                Staff workspace
-              </Link>
-            )}
-          </nav>
+          {navigationSections.map((section) => (
+            <section className="portal-nav-section" key={section.title}>
+              <p className="portal-nav-label">{section.title}</p>
+              <nav aria-label={section.label}>
+                {section.links.map((link) => {
+                  const active = isActiveLink(link);
+                  return (
+                    <Link
+                      key={`${link.label}-${link.path}`}
+                      to={link.path}
+                      className={`portal-nav-link${active ? ' active' : ''}`}
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => { setMenuOpen(false); setHelpOpen(false); }}
+                    >
+                      <Icon name={link.icon} size={17} />
+                      <span>{link.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </section>
+          ))}
         </div>
         <div className="portal-sidebar-bottom">
-          <div className="portal-assistance">
+          {!isAdmin && <div className="portal-assistance">
             <strong>Need assistance?</strong>
             <p>Contact the Student Affairs office for help with your request.</p>
             <a href="mailto:liteboho.molaoa@limkokwing.ac.ls">Contact support</a>
-          </div>
+          </div>}
           <small className="portal-version">LIMKOKWING UNIVERSITY · MASERU</small>
         </div>
       </aside>
@@ -254,21 +284,22 @@ function SiteLayout({
           </footer>
         </main>
         <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-          <Link to="/" className={currentPath === '/' ? 'active' : ''} aria-current={currentPath === '/' ? 'page' : undefined}>
-            <Icon name="home" size={19} /><span>Home</span>
-          </Link>
-          <Link to="/services" className={currentPath.startsWith('/services') ? 'active' : ''} aria-current={currentPath.startsWith('/services') ? 'page' : undefined}>
-            <Icon name="grid" size={19} /><span>Services</span>
-          </Link>
-          <button type="button" className={currentPath === '/student' ? 'active' : ''} onClick={onStudentAccess}>
-            <Icon name="document" size={19} /><span>My requests</span>
-          </button>
-          <button type="button" className={currentPath === '/student' ? 'active' : ''} onClick={onStudentAccess}>
-            <Icon name="user" size={19} /><span>Profile</span>
-          </button>
+          {mobileLinks.map((link) => {
+            const active = isActiveLink(link);
+            return (
+              <Link
+                key={`${link.label}-${link.path}`}
+                to={link.path}
+                className={active ? 'active' : ''}
+                aria-current={active ? 'page' : undefined}
+              >
+                <Icon name={link.icon} size={19} /><span>{link.label}</span>
+              </Link>
+            );
+          })}
         </nav>
       </div>
-      <div className="portal-help-widget" ref={helpWidget}>
+      {!isAdmin && <div className="portal-help-widget" ref={helpWidget}>
         {helpOpen && (
           <section className="portal-help-menu" id="portal-help-menu" aria-labelledby="portal-help-title">
             <h2 id="portal-help-title">How can we help?</h2>
@@ -297,7 +328,7 @@ function SiteLayout({
           <Icon name={helpOpen ? 'close' : 'support'} size={20} />
           <span>{helpOpen ? 'Close' : 'Help'}</span>
         </button>
-      </div>
+      </div>}
       {menuOpen && <button className="portal-sidebar-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
     </div>
   );

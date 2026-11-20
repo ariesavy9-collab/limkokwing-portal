@@ -72,6 +72,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /portalSettings/{settingId} {
+      allow read: if staff() && settingId == 'academicOptions';
+      allow create, update: if staff()
+        && settingId == 'academicOptions'
+        && request.resource.data.keys().hasOnly(['faculties', 'courses', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['faculties', 'courses', 'updatedAt'])
+        && request.resource.data.faculties is list
+        && request.resource.data.faculties.size() <= 100
+        && request.resource.data.courses is list
+        && request.resource.data.courses.size() <= 500
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /users/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
       allow create: if signedIn()
@@ -213,7 +227,7 @@ service cloud.firestore {
       allow create: if staff()
         && request.resource.data.keys().hasOnly([
           'name', 'description', 'department', 'processingTime', 'fee',
-          'studentOnly', 'active', 'createdAt', 'updatedAt'
+          'studentOnly', 'icon', 'active', 'createdAt', 'updatedAt'
         ])
         && validText(request.resource.data.name, 1, 100)
         && validText(request.resource.data.description, 10, 500)
@@ -221,17 +235,21 @@ service cloud.firestore {
         && validText(request.resource.data.processingTime, 1, 60)
         && validText(request.resource.data.fee, 1, 40)
         && request.resource.data.studentOnly is bool
+        && request.resource.data.icon in [
+          'calendar', 'bell', 'home', 'grid', 'close', 'document', 'id',
+          'mail', 'message', 'phone', 'search', 'shield', 'support', 'user', 'university'
+        ]
         && request.resource.data.active == true
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
       allow update: if staff()
         && request.resource.data.keys().hasOnly([
           'name', 'description', 'department', 'processingTime', 'fee',
-          'studentOnly', 'active', 'createdAt', 'updatedAt'
+          'studentOnly', 'icon', 'active', 'createdAt', 'updatedAt'
         ])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'description', 'department', 'processingTime', 'fee',
-          'studentOnly', 'active', 'updatedAt'
+          'studentOnly', 'icon', 'active', 'updatedAt'
         ])
         && validText(request.resource.data.name, 1, 100)
         && validText(request.resource.data.description, 10, 500)
@@ -239,6 +257,11 @@ service cloud.firestore {
         && validText(request.resource.data.processingTime, 1, 60)
         && validText(request.resource.data.fee, 1, 40)
         && request.resource.data.studentOnly is bool
+        && (!request.resource.data.keys().hasAny(['icon'])
+          || request.resource.data.icon in [
+            'calendar', 'bell', 'home', 'grid', 'close', 'document', 'id',
+            'mail', 'message', 'phone', 'search', 'shield', 'support', 'user', 'university'
+          ])
         && request.resource.data.active is bool
         && request.resource.data.updatedAt == request.time;
       allow delete: if staff();

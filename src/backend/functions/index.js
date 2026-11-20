@@ -177,7 +177,10 @@ exports.grantAdminAccess = onCall({ region: 'us-central1' }, async (request) => 
   return { uid: userRecord.uid, email: userRecord.email };
 });
 
-exports.deleteStudentRecord = onCall({ region: 'us-central1' }, async (request) => {
+exports.deleteStudentRecord = onCall({
+  region: 'us-central1',
+  timeoutSeconds: 540,
+}, async (request) => {
   const callerEmail = request.auth?.token?.email?.toLowerCase();
   const callerRecord = callerEmail
     ? await db.collection('adminUsers').doc(callerEmail).get()
@@ -250,6 +253,7 @@ exports.deleteStudentRecord = onCall({ region: 'us-central1' }, async (request) 
       stage: failureStage,
       uid: userRecord?.uid || 'unlinked',
       code: error.code || 'unknown',
+      message: error.message || 'No additional error details.',
     });
     throw new HttpsError(
       'internal',

@@ -10,7 +10,9 @@ export async function grantAdminAccess(email) {
 }
 
 export async function removeStudent(email) {
-  const removeStudentRecord = httpsCallable(functions, 'deleteStudentRecord');
+  const removeStudentRecord = httpsCallable(functions, 'deleteStudentRecord', {
+    timeout: 540000,
+  });
   const result = await removeStudentRecord({ email: email.trim().toLowerCase() });
   return result.data;
 }
