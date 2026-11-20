@@ -214,6 +214,7 @@ function PortalApp() {
       title: 'Sign out of the student portal?',
       message: 'You will need to sign in again to view your student or administration workspace.',
       confirmLabel: 'Sign out',
+      destructive: true,
     });
     if (!confirmed) return;
     const { signOutUser } = await import('./models/authRepository');

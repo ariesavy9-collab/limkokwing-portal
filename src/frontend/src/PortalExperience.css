@@ -1,14 +1,14 @@
 :root {
   color-scheme: dark;
-  --ink: #e7edf4;
-  --muted: #a4b2c1;
-  --faint: #8293a5;
-  --paper: #0b1118;
-  --surface: #121b25;
-  --line: #293746;
+  --ink: #e7e8ea;
+  --muted: #a7aaae;
+  --faint: #85898e;
+  --paper: #111214;
+  --surface: #1b1c1f;
+  --line: #34363a;
   --purple: #56c3e6;
   --purple-dark: #9cdef2;
-  --purple-soft: #173342;
+  --purple-soft: #292b2e;
   --gold: #efb85c;
   --gold-soft: #392e1b;
   --blue: #56c3e6;
@@ -24,8 +24,8 @@ html, body, button, input, select, textarea, h1, h2, h3, h4, p, a, label, small,
 
 body { color: var(--ink); background: var(--paper); }
 .portal-shell { background: var(--paper); }
-.portal-sidebar { width: 232px; background: #071d3b; border-color: #142d50; }
-.portal-brand { min-height: 82px; border-color: #1d3657; }
+.portal-sidebar { width: 232px; background: #090a0b; border-color: #25272a; }
+.portal-brand { min-height: 82px; border-color: #25272a; }
 .portal-nav-group { padding: 20px 11px 12px; }
 .portal-nav-label { color: #a9bad3; font-size: 10px; }
 .portal-nav-link, .portal-sign-in-link, .portal-sign-in-link:hover {
@@ -38,9 +38,9 @@ body { color: var(--ink); background: var(--paper); }
 .portal-nav-link:hover { background: #12355f; color: #fff; }
 .portal-nav-link.active, .portal-nav-link.active:hover { color: #fff; background: #0755d9; box-shadow: none; }
 .portal-help-label { margin-top: 24px; }
-.portal-assistance { background: #102a4b; border-radius: 4px; }
+.portal-assistance { background: #1a1c1f; border-radius: 4px; }
 .portal-assistance strong { color: #fff; }
-.portal-assistance p, .portal-version { color: #b4c3d8; }
+.portal-assistance p, .portal-version { color: #b5b8bc; }
 .portal-assistance a { color: #83b9ff; }
 .portal-main { margin-left: 232px; }
 .portal-topbar { min-height: 70px; padding: 12px clamp(18px, 3vw, 36px); background: rgba(255,255,255,.97); }
@@ -53,12 +53,12 @@ body { color: var(--ink); background: var(--paper); }
   min-height: 286px;
   border-radius: 5px;
   box-shadow: none;
-  background: #092752;
+  background: #17191c;
 }
 .hero-photo {
   border-radius: 0;
   background:
-    linear-gradient(90deg, rgba(5, 28, 62, .96) 0%, rgba(5, 35, 75, .82) 48%, rgba(5, 35, 75, .08) 100%),
+    linear-gradient(90deg, rgba(12, 13, 14, .96) 0%, rgba(20, 21, 23, .82) 48%, rgba(20, 21, 23, .08) 100%),
     url('https://static.africa-press.net/lesotho/sites/62/2025/11/sm_1762272833.53713.jpg') center 48% / cover no-repeat;
 }
 .hero-content { width: 58%; min-height: 286px; padding: 34px clamp(24px, 4vw, 52px); }
@@ -109,7 +109,7 @@ body { color: var(--ink); background: var(--paper); }
   border-radius: 5px;
   box-shadow: 0 2px 7px rgba(20, 42, 78, .04);
 }
-.request-aside { background: #0b3268; border-color: #082954; border-radius: 5px; }
+.request-aside { background: #202225; border-color: #36393d; border-radius: 5px; }
 .form-field input, .form-field textarea, .form-field select, .auth-form input, .service-filter, .staff-search, .select-control {
   border-color: #d3deec;
   border-radius: 4px;
@@ -293,14 +293,14 @@ body,
 }
 
 .portal-sidebar {
-  background: #0d1722;
+  background: #090a0b;
   border-color: var(--line);
 }
 
 .portal-brand,
 .portal-topbar {
   color: var(--ink);
-  background: rgba(15, 23, 33, .96);
+  background: rgba(22, 23, 25, .97);
   border-color: var(--line);
 }
 
@@ -389,7 +389,7 @@ body,
 .portal-assistance,
 .portal-help-menu,
 .portal-account-dropdown {
-  background: #141f2b;
+  background: #1b1c1f;
   border: 1px solid var(--line);
 }
 
@@ -402,7 +402,7 @@ body,
 .portal-help-menu > a:hover,
 .portal-help-menu > button:hover,
 .portal-account-dropdown button:hover {
-  background: #1d2b39;
+  background: #2a2c2f;
 }
 
 .portal-menu-toggle,
@@ -414,14 +414,14 @@ body,
 }
 
 .portal-notification.unread {
-  background: #142a36;
-  border-color: #28566a;
+  background: #222427;
+  border-color: #45484d;
 }
 
 .request-aside {
   color: var(--ink);
-  background: #142c3c;
-  border-color: #24465b;
+  background: #202225;
+  border-color: #36393d;
 }
 
 .request-aside h2,
@@ -443,8 +443,8 @@ body,
 .select-control,
 .request-edit-form textarea {
   color: var(--ink);
-  background: #0d1721;
-  border-color: #35485a;
+  background: #151618;
+  border-color: #3a3c40;
 }
 
 .form-field label,
@@ -670,7 +670,7 @@ body,
 .site-footer,
 .portal-footer {
   color: var(--muted);
-  background: #0d1721;
+  background: #17181a;
   border-color: var(--line);
 }
 
@@ -1756,4 +1756,65 @@ body,
 .fees-service-list li strong,
 .detail-facts > div:nth-child(2) > strong {
   color: #fff;
+}
+
+.portal-header-actions > .portal-sign-in.button.button-primary,
+.portal-header-actions > .portal-sign-in.button.button-primary:hover:not(:disabled) {
+  color: #fff;
+  background: #237a4b;
+  border-color: #2f9460;
+}
+
+.portal-header-actions > .portal-sign-in.button.button-primary:hover:not(:disabled) {
+  background: #1d653e;
+  border-color: #267d50;
+}
+
+.portal-account-dropdown button[role="menuitem"] {
+  color: #ffd9dc;
+  background: #3a2024;
+  border: 1px solid #6f343b;
+}
+
+.portal-account-dropdown button[role="menuitem"]:hover {
+  color: #fff;
+  background: #54272d;
+  border-color: #8d414b;
+}
+
+.confirmation-dialog button.button-primary {
+  color: #fff;
+  background: #237a4b;
+  border-color: #2f9460;
+}
+
+.confirmation-dialog button.button-primary:hover:not(:disabled) {
+  background: #1d653e;
+  border-color: #267d50;
+}
+
+.portal-footer {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 32px 0 4px;
+  padding: 14px 0;
+  color: var(--muted);
+  background: transparent;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .portal-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+    margin: 20px 0 60px;
+    padding: 12px 0;
+  }
 }

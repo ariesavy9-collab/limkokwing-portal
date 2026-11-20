@@ -263,7 +263,6 @@ function ServicesPage({ navigate, user, services, serviceError }) {
       ) : (
         <div className="empty-state"><h2>No matching services</h2><p>Try a different search term, or contact the registry for help.</p><button className="button button-outline" onClick={() => setQuery('')}>Clear search</button></div>
       )}
-      {!user && <aside className="public-note"><Icon name="message" size={20} /><p><strong>Registered student?</strong> Sign in to view academic services and follow your requests online.</p><button className="text-button" onClick={() => navigate('/student')}>Student sign in</button></aside>}
     </section>
   );
 }
