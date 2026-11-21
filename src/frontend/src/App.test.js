@@ -19,6 +19,8 @@ import AdminFinancePage from './pages/admin/AdminFinancePage';
 import { services } from './models/services';
 import { validateForm } from './models/formValidation';
 
+jest.mock('jspdf', () => ({ jsPDF: jest.fn() }));
+
 const subscribeToAcademicOptions = (callback) => {
   callback({
     faculties: [
@@ -213,11 +215,67 @@ test('student letters can be read and deleted after confirmation', async () => {
   );
 
   expect(screen.getByText('Your enrollment is confirmed.')).toBeInTheDocument();
+  expect(screen.getByText(/Draft - requires authorized signature and stamp/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Delete letter' }));
   const confirmation = screen.getByRole('alertdialog', { name: 'Delete this received letter?' });
   fireEvent.click(within(confirmation).getByRole('button', { name: 'Delete letter' }));
 
   await waitFor(() => expect(onDeleteLetter).toHaveBeenCalledWith('letter-1'));
+});
+
+test('downloaded student letter PDFs include the supplied logo and authorization placeholders', async () => {
+  const { jsPDF } = require('jspdf');
+  const pdf = {
+    internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 } },
+    addImage: jest.fn(),
+    addPage: jest.fn(),
+    line: jest.fn(),
+    roundedRect: jest.fn(),
+    save: jest.fn(),
+    setDrawColor: jest.fn(),
+    setFont: jest.fn(),
+    setFontSize: jest.fn(),
+    setLineDashPattern: jest.fn(),
+    setTextColor: jest.fn(),
+    splitTextToSize: jest.fn((text) => String(text).split(/\r?\n/)),
+    text: jest.fn(),
+  };
+  jsPDF.mockImplementation(() => pdf);
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    blob: async () => new Blob(['logo'], { type: 'image/png' }),
+  });
+  try {
+    render(
+      <StudentLettersPage
+        user={{ email: 'student@example.com' }}
+        onSubscribeToLetters={(_email, callback) => {
+          callback([{
+            id: 'ltr001',
+            title: 'Enrollment confirmation',
+            body: 'Enrollment is confirmed.',
+            recipientAddress: 'Student Example\n12 Main Street\nMaseru, Lesotho',
+          }]);
+          return () => {};
+        }}
+        onDeleteLetter={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Download letter PDF' }));
+    await waitFor(() => expect(pdf.save).toHaveBeenCalled());
+
+    expect(pdf.addImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/png;base64,/), 'PNG', expect.any(Number), 13, 58, 25);
+    expect(pdf.splitTextToSize).toHaveBeenCalledWith('Student Example\n12 Main Street\nMaseru, Lesotho', expect.any(Number));
+    expect(pdf.text).toHaveBeenCalledWith('DRAFT - NOT OFFICIAL', 105, 148.5, expect.objectContaining({ angle: 35 }));
+    expect(pdf.text).toHaveBeenCalledWith('AUTHORIZED SIGNATURE REQUIRED', expect.any(Number), expect.any(Number));
+    expect(pdf.text).toHaveBeenCalledWith('AUTHORIZED STAMP', expect.any(Number), expect.any(Number), expect.objectContaining({ align: 'center' }));
+  } finally {
+    if (originalFetch) global.fetch = originalFetch;
+    else delete global.fetch;
+    jsPDF.mockReset();
+  }
 });
 
 test('admin navigation hides public university links and help content', () => {
@@ -976,12 +1034,17 @@ test('admin sends an auto-filled letter and accepts the recommendation request',
   );
 
   fireEvent.click(screen.getByRole('button', { name: 'Write & send letter' }));
+  expect(screen.getByLabelText('Receiver name and address')).toHaveValue('Student Example\nstudent@example.com');
+  fireEvent.change(screen.getByLabelText('Receiver name and address'), {
+    target: { value: 'Student Example\n12 Main Street\nMaseru, Lesotho' },
+  });
   expect(screen.getByLabelText('Letter text').value).toContain('Student Example');
   fireEvent.submit(screen.getByRole('button', { name: 'Send letter & accept request' }).closest('form'));
 
   await waitFor(() => expect(onSendLetterAndAcceptRequest).toHaveBeenCalledWith('recommendation-request', expect.objectContaining({
     studentEmail: 'student@example.com',
     studentId: '901019217',
+    recipientAddress: 'Student Example\n12 Main Street\nMaseru, Lesotho',
     createdBy: 'admin@example.com',
   })));
 });

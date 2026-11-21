@@ -6,6 +6,7 @@ import AdminFinancePage from './admin/AdminFinancePage';
 import AcademicOptionsPage from './admin/AcademicOptionsPage';
 import { handleFormInput, validateForm } from '../models/formValidation';
 import { getRequestFeeAmount } from '../models/fees';
+import limkokwingLetterhead from '../assets/limkokwing-letterhead.png';
 import {
   deleteInquiry,
   setInquiryStatus,
@@ -87,50 +88,111 @@ async function downloadRequestPdf(request) {
 }
 
 async function downloadStudentLetterPdf(letter) {
+  const response = await fetch(limkokwingLetterhead);
+  if (!response.ok) throw new Error('The university letterhead could not be loaded.');
+  const logoBlob = await response.blob();
+  const logoDataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('The university letterhead could not be read.'));
+    reader.readAsDataURL(logoBlob);
+  });
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF();
   const pageWidth = pdf.internal.pageSize.getWidth();
-  pdf.setTextColor(10, 34, 72);
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 22;
+  const bodyWidth = pageWidth - margin * 2;
+  const date = letter.createdAt?.toDate?.() || new Date();
+  const dateText = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const watermark = () => {
+    pdf.setTextColor(235, 237, 241);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(25);
+    pdf.text('DRAFT - NOT OFFICIAL', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 35 });
+    pdf.setTextColor(25, 35, 54);
+    pdf.setFont('helvetica', 'normal');
+  };
+  const addStampPlaceholder = (y) => {
+    pdf.setDrawColor(92, 111, 139);
+    pdf.setLineDashPattern([1, 1], 0);
+    pdf.roundedRect(pageWidth - margin - 58, y, 58, 25, 1, 1);
+    pdf.setLineDashPattern([], 0);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7);
+    pdf.setTextColor(66, 82, 110);
+    pdf.text('AUTHORIZED STAMP', pageWidth - margin - 29, y + 9, { align: 'center' });
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('To be applied by Registry', pageWidth - margin - 29, y + 16, { align: 'center' });
+    pdf.text('after approval', pageWidth - margin - 29, y + 21, { align: 'center' });
+    pdf.setTextColor(25, 35, 54);
+  };
+  watermark();
+  pdf.addImage(logoDataUrl, 'PNG', (pageWidth - 58) / 2, 13, 58, 25);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(9);
+  pdf.text('LESOTHO', pageWidth / 2, 43, { align: 'center' });
+  pdf.setFontSize(8);
+  pdf.setTextColor(160, 38, 48);
+  pdf.text('DRAFT - NOT OFFICIAL - AUTHORIZATION REQUIRED', pageWidth / 2, 51, { align: 'center' });
+  pdf.setTextColor(25, 35, 54);
+  pdf.text(`Ref: ${letter.id.toUpperCase()}`, pageWidth - margin, 61, { align: 'right' });
+
+  const address = letter.recipientAddress || `${letter.studentName}\n${letter.studentEmail}`;
+  const addressLines = pdf.splitTextToSize(address, bodyWidth * 0.58);
+  pdf.text(addressLines, margin, 73);
+  pdf.text(`Date: ${dateText}`, pageWidth - margin, 73, { align: 'right' });
+
+  let y = 73 + addressLines.length * 5 + 13;
+  pdf.text('Dear Sir/Madam,', margin, y);
+  y += 12;
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(18);
-  pdf.text('LIMKOKWING UNIVERSITY', 18, 22);
+  pdf.setFontSize(12);
+  const titleLines = pdf.splitTextToSize(letter.title.toUpperCase(), bodyWidth - 16);
+  pdf.text(titleLines, pageWidth / 2, y, { align: 'center' });
+  y += titleLines.length * 6 + 9;
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
-  pdf.text('Maseru Campus, Maseru, Lesotho', 18, 30);
-  pdf.setDrawColor(0, 85, 217);
-  pdf.line(18, 36, pageWidth - 18, 36);
-  pdf.setDrawColor(185, 35, 45);
-  pdf.setTextColor(185, 35, 45);
-  pdf.rect(pageWidth - 76, 43, 58, 12);
+
+  pdf.setTextColor(25, 35, 54);
+  const paragraphs = letter.body.split(/\r?\n/);
+  paragraphs.forEach((paragraph) => {
+    if (!paragraph.trim()) {
+      y += 4;
+      return;
+    }
+    const lines = pdf.splitTextToSize(paragraph, bodyWidth);
+    lines.forEach((line) => {
+      if (y > pageHeight - 52) {
+        pdf.addPage();
+        watermark();
+        pdf.setFontSize(10);
+        y = 25;
+      }
+      pdf.text(line, margin, y);
+      y += 5.5;
+    });
+    y += 2;
+  });
+  if (y > pageHeight - 48) {
+    pdf.addPage();
+    watermark();
+    pdf.setFontSize(10);
+    y = 25;
+  }
+  y += 8;
+  pdf.text('Yours faithfully,', margin, y);
+  const signatureY = Math.min(y + 27, pageHeight - 38);
+  pdf.line(margin, signatureY, margin + 56, signatureY);
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(8);
-  pdf.text('SAMPLE - NOT OFFICIAL', pageWidth - 73, 51);
-  pdf.setTextColor(25, 35, 54);
+  pdf.text('AUTHORIZED SIGNATURE REQUIRED', margin, signatureY + 5);
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(11);
-  pdf.text(`Date: ${letter.createdAt?.toDate?.().toLocaleDateString() || new Date().toLocaleDateString()}`, 18, 53);
-  pdf.text(`To: ${letter.studentName}`, 18, 68);
-  pdf.text(`Student number: ${letter.studentId}`, 18, 76);
-  pdf.text(`Email: ${letter.studentEmail}`, 18, 84);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(14);
-  const titleLines = pdf.splitTextToSize(letter.title, pageWidth - 36);
-  pdf.text(titleLines, 18, 101);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(11);
-  const bodyLines = pdf.splitTextToSize(letter.body, pageWidth - 36);
-  let y = 110 + (titleLines.length - 1) * 7;
-  bodyLines.forEach((line) => {
-    if (y > 270) {
-      pdf.addPage();
-      y = 24;
-    }
-    pdf.text(line, 18, y);
-    y += 6;
-  });
-  pdf.setFontSize(9);
-  pdf.setTextColor(185, 35, 45);
-  pdf.text('Draft sample only. Not an official university document.', 18, 286);
+  pdf.text('Registry Office', margin, signatureY + 10);
+  addStampPlaceholder(signatureY - 5);
+  pdf.setFontSize(8);
+  pdf.setTextColor(160, 38, 48);
+  pdf.text('Draft copy only. Not valid as an official university letter until approved, signed, and stamped.', margin, pageHeight - 10);
   pdf.save(`draft-letter-${letter.studentId}-${letter.id.slice(0, 8)}.pdf`);
 }
 
@@ -466,6 +528,15 @@ function StudentLettersPage({ user, onSubscribeToLetters, onDeleteLetter }) {
     }
   };
 
+  const handleDownload = async (letter) => {
+    setError('');
+    try {
+      await downloadStudentLetterPdf(letter);
+    } catch (failure) {
+      setError(failure.message || 'The letter PDF could not be generated.');
+    }
+  };
+
   return (
     <section className="content-wrap" aria-labelledby="student-letters-title">
       <div className="page-heading">
@@ -479,11 +550,11 @@ function StudentLettersPage({ user, onSubscribeToLetters, onDeleteLetter }) {
             <article className="student-letter-item" key={letter.id}>
               <div>
                 <h2>{letter.title}</h2>
-                <span>{letter.createdAt?.toDate?.().toLocaleDateString() || 'Recently sent'} · SAMPLE - NOT OFFICIAL</span>
+                <span>{letter.createdAt?.toDate?.().toLocaleDateString() || 'Recently sent'} · Draft - requires authorized signature and stamp</span>
                 <p>{letter.body}</p>
               </div>
               <div className="student-letter-actions">
-                <button className="button button-outline" type="button" onClick={() => downloadStudentLetterPdf(letter)}>Download letter PDF</button>
+                <button className="button button-outline" type="button" onClick={() => handleDownload(letter)}>Download letter PDF</button>
                 <button className="button button-danger" type="button" disabled={deletingId === letter.id} onClick={() => handleDelete(letter)}>
                   {deletingId === letter.id ? 'Deleting…' : 'Delete letter'}
                 </button>
@@ -773,6 +844,7 @@ function AdminDashboard({
   const [staffValidationErrors, setStaffValidationErrors] = useState([]);
   const [letterRequestId, setLetterRequestId] = useState('');
   const [letterTitle, setLetterTitle] = useState('');
+  const [letterRecipientAddress, setLetterRecipientAddress] = useState('');
   const [letterBody, setLetterBody] = useState('');
   const [letterValidationErrors, setLetterValidationErrors] = useState([]);
   const [deletingStudentEmail, setDeletingStudentEmail] = useState('');
@@ -860,7 +932,10 @@ function AdminDashboard({
   const openLetterEditor = (request) => {
     setLetterRequestId(request.id);
     setLetterTitle(`${request.service} - ${request.studentName}`);
-    setLetterBody(`To whom it may concern,\n\nThis draft letter is prepared for ${request.studentName}, student number ${request.studentId}, in response to the ${request.service} request.\n\nPlease review and edit this text before sending. This generated draft is not an official university document.\n\nSincerely,\nStudent Affairs Office\nLimkokwing University of Creative Technology\nMaseru Campus, Maseru, Lesotho`);
+    const requestEmail = request.email || '';
+    const student = students.find((item) => item.email.toLowerCase() === requestEmail.toLowerCase());
+    setLetterRecipientAddress([request.studentName, student?.address, request.email].filter(Boolean).join('\n'));
+    setLetterBody(`This letter confirms that ${request.studentName}, student number ${request.studentId}, has requested a ${request.service.toLowerCase()} from Limkokwing University of Creative Technology, Lesotho.\n\nPlease contact the Registry Office if further information is required.`);
     setLetterValidationErrors([]);
   };
 
@@ -871,7 +946,7 @@ function AdminDashboard({
     if (errors.length) return;
     const confirmed = await confirm({
       title: 'Send this letter and accept the request?',
-      message: `The letter will be sent to ${request.studentName}, and their ${request.service} request will be accepted.`,
+      message: `A draft letter will be sent to ${request.studentName}. It will require an authorized signature and official stamp before it can be used as an official document. Their ${request.service} request will also be accepted.`,
       confirmLabel: 'Send letter',
     });
     if (!confirmed) return;
@@ -882,6 +957,7 @@ function AdminDashboard({
         studentEmail: request.email,
         studentName: request.studentName,
         studentId: request.studentId,
+        recipientAddress: letterRecipientAddress,
         title: letterTitle,
         body: letterBody,
         createdBy: adminEmail,
@@ -1292,7 +1368,8 @@ function AdminDashboard({
             <p>{request.description}</p>
             {letterRequestId === request.id && <form className="request-form admin-letter-editor" noValidate onSubmit={(event) => handleSendLetter(event, request)} onChange={(event) => handleFormInput(event, setLetterValidationErrors)}>
               <span className="eyebrow">GENERATED LETTER DRAFT</span>
-              <p className="form-intro">Student and request details are filled in automatically. Review the text before sending. The PDF will be marked SAMPLE - NOT OFFICIAL.</p>
+              <p className="form-intro">The university logo, recipient address, reference, and date are positioned automatically. This draft must be approved and physically signed and stamped before official use.</p>
+              <div className="form-field"><label htmlFor={`letter-address-${request.id}`}>Receiver name and address</label><textarea id={`letter-address-${request.id}`} value={letterRecipientAddress} onChange={(event) => setLetterRecipientAddress(event.target.value)} required minLength="3" maxLength="240" rows="4" /></div>
               <div className="form-field"><label htmlFor={`letter-title-${request.id}`}>Letter title</label><input id={`letter-title-${request.id}`} value={letterTitle} onChange={(event) => setLetterTitle(event.target.value)} required minLength="3" maxLength="120" /></div>
               <div className="form-field"><label htmlFor={`letter-body-${request.id}`}>Letter text</label><textarea id={`letter-body-${request.id}`} value={letterBody} onChange={(event) => setLetterBody(event.target.value)} required minLength="20" maxLength="5000" rows="12" /></div>
               <ValidationErrors errors={letterValidationErrors} />
