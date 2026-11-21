@@ -255,6 +255,7 @@ export async function sendStudentLetterAndAcceptRequest(requestId, letter) {
     studentName: letter.studentName.trim(),
     studentId: letter.studentId.trim(),
     recipientAddress: letter.recipientAddress.trim(),
+    requestId: requestId.trim(),
     title: letter.title.trim(),
     body: letter.body.trim(),
     createdBy: letter.createdBy.trim().toLowerCase(),

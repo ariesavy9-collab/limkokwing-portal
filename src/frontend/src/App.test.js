@@ -450,6 +450,26 @@ test('notification page shows request approval updates and allows marking them r
   await waitFor(() => expect(onMarkRead).toHaveBeenCalledWith('notification-1'));
 });
 
+test('notification page identifies a newly received letter', () => {
+  const { container } = render(
+    <NotificationsPage
+      notifications={[{
+        id: 'letter-notification',
+        title: 'New letter received',
+        message: 'A new letter is available in your Letters section.',
+        type: 'letter',
+        read: false,
+      }]}
+      error=""
+      onMarkRead={jest.fn()}
+      onMarkAllRead={jest.fn()}
+    />,
+  );
+
+  expect(screen.getByRole('heading', { name: 'New letter received' })).toBeInTheDocument();
+  expect(container.querySelector('.portal-notification-icon svg path')).toHaveAttribute('d', 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z');
+});
+
 jest.mock('./controllers/useAuth', () => ({
   __esModule: true,
   default: () => ({

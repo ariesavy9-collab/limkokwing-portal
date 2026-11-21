@@ -128,14 +128,18 @@ service cloud.firestore {
         || (signedIn() && request.auth.token.email == resource.data.studentEmail);
       allow create: if staff()
         && request.resource.data.keys().hasOnly([
-          'studentEmail', 'studentName', 'studentId', 'title', 'body',
-          'createdBy', 'status', 'createdAt'
+          'studentEmail', 'studentName', 'studentId', 'recipientAddress',
+          'requestId', 'title', 'body', 'createdBy', 'status', 'createdAt'
         ])
         && request.resource.data.studentEmail is string
         && request.resource.data.studentEmail.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
         && exists(/databases/$(database)/documents/studentDirectory/$(request.resource.data.studentEmail))
         && request.resource.data.studentId == get(/databases/$(database)/documents/studentDirectory/$(request.resource.data.studentEmail)).data.studentId
         && request.resource.data.studentName == get(/databases/$(database)/documents/studentDirectory/$(request.resource.data.studentEmail)).data.name
+        && request.resource.data.recipientAddress is string
+        && request.resource.data.recipientAddress.size() <= 240
+        && request.resource.data.requestId is string
+        && request.resource.data.requestId.size() <= 128
         && validText(request.resource.data.title, 3, 120)
         && validText(request.resource.data.body, 20, 5000)
         && request.resource.data.createdBy == request.auth.token.email

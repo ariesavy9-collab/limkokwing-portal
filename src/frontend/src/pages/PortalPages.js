@@ -779,7 +779,7 @@ function NotificationsPage({ notifications, error, onMarkRead, onMarkAllRead }) 
               className={`portal-notification${notification.read ? '' : ' unread'}`}
               key={notification.id}
             >
-              <span className="portal-notification-icon"><Icon name={notification.type === 'profile' ? 'user' : 'bell'} size={18} /></span>
+              <span className="portal-notification-icon"><Icon name={notification.type === 'profile' ? 'user' : notification.type === 'letter' ? 'document' : 'bell'} size={18} /></span>
               <div className="portal-notification-content">
                 <h2>{notification.title}</h2>
                 <p>{notification.message}</p>

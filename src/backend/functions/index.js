@@ -123,6 +123,34 @@ exports.notifyOnRequestStatusChanged = onDocumentUpdated({
   });
 });
 
+exports.notifyOnStudentLetterCreated = onDocumentCreated({
+  document: 'studentLetters/{letterId}',
+  region: 'us-central1',
+}, async (event) => {
+  const letter = event.data?.data();
+  const email = typeof letter?.studentEmail === 'string' ? letter.studentEmail.trim().toLowerCase() : '';
+  if (!email) return;
+
+  let student;
+  try {
+    student = await auth.getUserByEmail(email);
+  } catch (error) {
+    if (error.code === 'auth/user-not-found') {
+      logger.warn('Letter notification skipped because the student account was not found.', { email });
+      return;
+    }
+    throw error;
+  }
+
+  await createNotification(event.id, {
+    ownerUid: student.uid,
+    type: 'letter',
+    letterId: event.params.letterId,
+    title: 'New letter received',
+    message: `A new letter, “${letter.title || 'University letter'}”, is available in your Letters section.`,
+  });
+});
+
 exports.notifyOnProfileCreated = onDocumentCreated({
   document: 'users/{userId}',
   region: 'us-central1',
