@@ -142,7 +142,8 @@ service cloud.firestore {
         && request.resource.data.status == 'Draft - not official'
         && request.resource.data.createdAt == request.time;
       allow update: if false;
-      allow delete: if staff();
+      allow delete: if staff()
+        || (signedIn() && request.auth.token.email == resource.data.studentEmail);
     }
 
     match /serviceRequests/{requestId} {

@@ -243,6 +243,10 @@ export function subscribeToStudentLetters(email, callback, onError) {
   );
 }
 
+export async function deleteStudentLetter(letterId) {
+  await deleteDoc(doc(db, 'studentLetters', letterId));
+}
+
 export async function sendStudentLetterAndAcceptRequest(requestId, letter) {
   const letterRef = doc(collection(db, 'studentLetters'));
   const batch = writeBatch(db);

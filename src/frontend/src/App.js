@@ -18,6 +18,7 @@ import {
   RequestPage,
   ServiceDetailsPage,
   ServicesPage,
+  StudentLettersPage,
   StudentDashboard,
   SubmissionConfirmationPage,
   SuccessPage,
@@ -32,6 +33,7 @@ import {
   createStudentRecord,
   createStudentRequest,
   deleteStudentRequest,
+  deleteStudentLetter,
   deleteRequest,
   markAllNotificationsRead,
   markNotificationRead,
@@ -151,6 +153,7 @@ function PortalApp() {
   }, [isAdmin, loading, navigate, path, user]);
 
   const handleAuthSuccess = useCallback(async (account) => {
+    setNotice(null);
     navigate(account?.isAdmin ? '/staff' : '/student');
   }, [navigate]);
 
@@ -166,8 +169,8 @@ function PortalApp() {
     const { signOutUser } = await import('./models/authRepository');
     try {
       await signOutUser();
+      setNotice(null);
       navigate('/');
-      setNotice({ type: 'success', message: 'You have been signed out.' });
     } catch (error) {
       setNotice({ type: 'error', message: error.message || 'You could not be signed out. Please try again.' });
     }
@@ -177,6 +180,7 @@ function PortalApp() {
     currentPath: path,
     currentSection: staffSection,
     user,
+    profile,
     isAdmin,
     loading,
     isOnline,
@@ -206,7 +210,6 @@ function PortalApp() {
             user={user}
             profile={profile}
             profileError={authError}
-            onSubscribeToLetters={subscribeToStudentLetters}
             onCancelRequest={async (id) => {
               await cancelStudentRequest(id);
               setNotice({ type: 'success', message: 'The request has been cancelled.' });
@@ -216,6 +219,18 @@ function PortalApp() {
             navigate={navigate}
           />
         ) : <div className="content-wrap" role="status">Checking student access…</div>} />
+        <Route path="letters" element={loading || !user
+          ? <div className="content-wrap" role="status">Checking student access…</div>
+          : isAdmin
+            ? <Navigate to="/staff" replace />
+            : <StudentLettersPage
+              user={user}
+              onSubscribeToLetters={subscribeToStudentLetters}
+              onDeleteLetter={async (id) => {
+                await deleteStudentLetter(id);
+                setNotice({ type: 'success', message: 'The letter has been deleted.' });
+              }}
+            />} />
         <Route path="notifications" element={user ? (
           <NotificationsPage
             notifications={notifications}

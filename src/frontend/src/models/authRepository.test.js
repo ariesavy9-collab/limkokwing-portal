@@ -22,9 +22,9 @@ jest.mock('./portalRepository', () => ({
 }));
 
 import { getDoc, onSnapshot, doc } from 'firebase/firestore';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { ensureUserProfile } from './portalRepository';
-import { loginWithGoogle, subscribeToAdminAccess } from './authRepository';
+import { getAuthErrorMessage, loginWithGoogle, subscribeToAdminAccess } from './authRepository';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -48,6 +48,20 @@ test('admin access is based on the adminUsers record without a custom claim', as
 
   expect(user.getIdTokenResult).not.toHaveBeenCalled();
   expect(ensureUserProfile).toHaveBeenCalledWith(user, {});
+});
+
+test('unregistered Google accounts are signed out with a Registry access message', async () => {
+  const registryMessage = 'You are not registered for this portal. Contact Registry at registry@limkokwing.ac.ls for access.';
+  const user = { email: 'visitor@example.com' };
+  signInWithPopup.mockResolvedValue({ user });
+  signOut.mockResolvedValue(undefined);
+  getDoc
+    .mockResolvedValueOnce({ exists: () => false })
+    .mockResolvedValueOnce({ exists: () => false });
+
+  await expect(loginWithGoogle()).rejects.toThrow(registryMessage);
+  expect(getAuthErrorMessage(new Error(registryMessage))).toBe(registryMessage);
+  expect(signOut).toHaveBeenCalledTimes(1);
 });
 
 test('admin access subscription watches the normalized email document', () => {

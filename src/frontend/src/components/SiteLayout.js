@@ -2,12 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import universityLogo from '../logo.png';
 import Icon from './Icon';
+import { subscribeToStudentRecord } from '../models/portalRepository';
+
+function formatProfileDate(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
 
 function SiteLayout({
   children,
   currentPath,
   currentSection = 'requests',
   user,
+  profile,
   isAdmin,
   loading,
   isOnline,
@@ -21,9 +29,14 @@ function SiteLayout({
   const [helpOpen, setHelpOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [failedPhotoUrl, setFailedPhotoUrl] = useState('');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [studentRecord, setStudentRecord] = useState(null);
+  const [studentRecordLoading, setStudentRecordLoading] = useState(false);
+  const [studentRecordError, setStudentRecordError] = useState('');
   const helpWidget = useRef(null);
   const accountMenu = useRef(null);
   const accountMenuButton = useRef(null);
+  const googlePhotoUrl = user?.photoURL || user?.providerData?.find((provider) => provider.providerId === 'google.com')?.photoURL;
   const studentSections = [
     {
       title: 'Student space',
@@ -31,6 +44,7 @@ function SiteLayout({
       links: [
         { label: 'Student home', path: '/student', icon: 'user' },
         { label: 'Browse services', path: '/services', icon: 'grid' },
+        { label: 'Letters', path: '/letters', icon: 'document' },
         { label: 'Notifications', path: '/notifications', icon: 'bell' },
       ],
     },
@@ -54,6 +68,7 @@ function SiteLayout({
   const titles = {
     '/': 'University home',
     '/student': 'Student home',
+    '/letters': 'Letters',
     '/services': 'Services',
     '/courses': 'Courses and programmes',
     '/fees': 'Tuition and fees',
@@ -81,6 +96,45 @@ function SiteLayout({
   const mobileLinks = isAdmin
     ? adminSections[0].links.slice(0, 4)
     : studentSections[0].links;
+  const profileDetails = { ...profile, ...studentRecord };
+  const isVerifiedStudent = Boolean(studentRecord) && [
+    'name',
+    'email',
+    'studentId',
+    'dateOfBirth',
+    'birthPlace',
+    'phone',
+    'address',
+    'faculty',
+    'course',
+  ].every((field) => typeof studentRecord[field] === 'string' && studentRecord[field].trim());
+
+  useEffect(() => {
+    setFailedPhotoUrl('');
+  }, [googlePhotoUrl]);
+
+  useEffect(() => {
+    if (!profileOpen || !user?.email) return undefined;
+    setStudentRecord(null);
+    setStudentRecordLoading(true);
+    setStudentRecordError('');
+    return subscribeToStudentRecord(user.email, (record) => {
+      setStudentRecord(record);
+      setStudentRecordLoading(false);
+    }, (error) => {
+      setStudentRecordLoading(false);
+      setStudentRecordError(error.message || 'Your university profile could not be loaded.');
+    });
+  }, [profileOpen, user?.email]);
+
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setProfileOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [profileOpen]);
 
   const isActiveLink = (link) => link.section
     ? currentPath === '/staff' && currentSection === link.section
@@ -200,11 +254,11 @@ function SiteLayout({
                     onClick={() => setAccountMenuOpen((open) => !open)}
                   >
                     <span className="portal-avatar">
-                      {user.photoURL && failedPhotoUrl !== user.photoURL ? (
+                      {googlePhotoUrl && failedPhotoUrl !== googlePhotoUrl ? (
                         <img
-                          src={user.photoURL}
+                          src={googlePhotoUrl}
                           alt=""
-                          onError={() => setFailedPhotoUrl(user.photoURL)}
+                          onError={() => setFailedPhotoUrl(googlePhotoUrl)}
                         />
                       ) : displayName.charAt(0).toUpperCase()}
                     </span>
@@ -214,6 +268,18 @@ function SiteLayout({
                     <div className="portal-account-dropdown" id="portal-account-dropdown" role="menu">
                       <span className="portal-account-email">{user.email || displayName}</span>
                       <button
+                        className="portal-account-view-profile"
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          setProfileOpen(true);
+                        }}
+                      >
+                        View profile
+                      </button>
+                      <button
+                        className="portal-account-signout"
                         type="button"
                         role="menuitem"
                         onClick={() => {
@@ -264,6 +330,52 @@ function SiteLayout({
           })}
         </nav>
       </div>
+      {profileOpen && (
+        <div className="profile-overlay">
+          <section
+            className="profile-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-profile-title"
+          >
+            <button className="profile-dialog-close" type="button" aria-label="Close profile" onClick={() => setProfileOpen(false)}>×</button>
+            <div className="profile-dialog-heading">
+              <span className="profile-dialog-photo">
+                {googlePhotoUrl && failedPhotoUrl !== googlePhotoUrl
+                  ? <img src={googlePhotoUrl} alt="" onError={() => setFailedPhotoUrl(googlePhotoUrl)} />
+                  : displayName.charAt(0).toUpperCase()}
+              </span>
+              <div>
+                <span className="eyebrow">ACCOUNT PROFILE</span>
+                <div className="profile-name-row">
+                  <h2 id="account-profile-title">{profileDetails.name || user?.displayName || displayName}</h2>
+                  {isVerifiedStudent && (
+                    <span className="profile-verified-badge" role="img" aria-label="Verified student" title="Verified student">
+                      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10 3.2 3.2L15.5 6" /></svg>
+                    </span>
+                  )}
+                </div>
+                <p>{profileDetails.email || user?.email || 'Email unavailable'}</p>
+              </div>
+            </div>
+            {studentRecordLoading && <p className="form-intro" role="status">Loading your university details…</p>}
+            {studentRecordError && <p className="form-alert form-alert-error" role="alert">{studentRecordError}</p>}
+            <dl className="profile-detail-list">
+              {[
+                ['Student number', profileDetails.studentId],
+                ['Faculty', profileDetails.faculty],
+                ['Course', profileDetails.course],
+                ['Date of birth', formatProfileDate(profileDetails.dateOfBirth)],
+                ['Place of birth', profileDetails.birthPlace],
+                ['Mobile number', profileDetails.phone],
+                ['Home address', profileDetails.address],
+              ].map(([label, value]) => (
+                <div key={label}><dt>{label}</dt><dd>{value || 'Not provided'}</dd></div>
+              ))}
+            </dl>
+          </section>
+        </div>
+      )}
       {!isAdmin && <div className="portal-help-widget" ref={helpWidget}>
         {helpOpen && (
           <section className="portal-help-menu" id="portal-help-menu" aria-labelledby="portal-help-title">

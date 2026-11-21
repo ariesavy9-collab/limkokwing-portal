@@ -177,8 +177,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .portal-help-menu small { margin-top: 3px; color: #65738a; font-size: 11px; }
 .portal-account-menu { position: relative; }
 .portal-account { display: flex; align-items: center; gap: 9px; padding: 0; color: var(--ink); background: none; border: 0; cursor: pointer; text-align: left; }
-.portal-avatar { width: 38px; height: 38px; display: grid; place-items: center; overflow: hidden; color: white; background: var(--purple); border-radius: 50%; font-size: 14px; font-weight: 800; }
-.portal-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.portal-avatar { width: 42px; height: 42px; display: grid; place-items: center; overflow: hidden; color: white; background: var(--purple); border-radius: 50%; font-size: 14px; font-weight: 800; }
+.portal-avatar img { width: 100%; height: 100%; object-fit: cover; transform: scale(1.08); }
 .portal-account-name { font-size: 11px; font-weight: 700; }
 .portal-account-name small { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; font-weight: 500; }
 .portal-account-dropdown { position: absolute; z-index: 30; top: calc(100% + 10px); right: 0; width: max-content; min-width: 180px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
@@ -376,7 +376,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .portal-content { min-height: calc(100vh - 68px); padding: 17px 15px; }
   .portal-header-actions { gap: 8px; }
   .portal-account-name { display: none; }
-  .portal-avatar { width: 34px; height: 34px; }
+  .portal-avatar { width: 38px; height: 38px; }
   .portal-sign-in { min-height: 36px; padding: 0 12px; }
   .portal-notification { gap: 10px; padding: 14px; flex-wrap: wrap; }
   .portal-notification-content { flex-basis: calc(100% - 50px); }

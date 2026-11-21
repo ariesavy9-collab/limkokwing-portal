@@ -29,7 +29,7 @@ export async function loginWithGoogle() {
       && /^90[0-9]{7}$/.test(student.studentId || '');
 
     if (!isAdmin && !isRegisteredStudent) {
-      throw new Error('This Google account is not registered for portal access. Contact Student Affairs to be added to the database.');
+      throw new Error('You are not registered for this portal. Contact Registry at registry@limkokwing.ac.ls for access.');
     }
 
     await ensureUserProfile(user, isAdmin ? {} : student);

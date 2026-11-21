@@ -13,7 +13,6 @@ import {
   subscribeToAllStudentRequests,
   subscribeToPublicInquiries,
   subscribeToAcademicOptions,
-  subscribeToStudentRecord,
   subscribeToStudentRecords,
   subscribeToStudentRequests,
 } from '../models/portalRepository';
@@ -422,42 +421,89 @@ function StatusBadge({ status }) {
   return <span className={`status-pill status-${status?.toLowerCase().replace(/\s+/g, '-') || 'pending'}`}>{status || 'Pending'}</span>;
 }
 
-function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
+function StudentLettersPage({ user, onSubscribeToLetters, onDeleteLetter }) {
+  const confirm = useConfirmation();
+  const [letters, setLetters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState('');
+
+  useEffect(() => {
+    if (!user?.email || !onSubscribeToLetters) {
+      setLoading(false);
+      setError('Your account email is unavailable, so your letters could not be loaded.');
+      return undefined;
+    }
+    setLetters([]);
+    setLoading(true);
+    setError('');
+    return onSubscribeToLetters(user.email, (items) => {
+      setLetters(items);
+      setLoading(false);
+      setError('');
+    }, (failure) => {
+      setLoading(false);
+      setError(failure.message || 'Letters could not be loaded.');
+    });
+  }, [onSubscribeToLetters, user?.email]);
+
+  const handleDelete = async (letter) => {
+    const confirmed = await confirm({
+      title: 'Delete this received letter?',
+      message: `“${letter.title}” will be permanently removed from your letters.`,
+      confirmLabel: 'Delete letter',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    setDeletingId(letter.id);
+    setError('');
+    try {
+      await onDeleteLetter(letter.id);
+    } catch (failure) {
+      setError(failure.message || 'The letter could not be deleted.');
+    } finally {
+      setDeletingId('');
+    }
+  };
+
+  return (
+    <section className="content-wrap" aria-labelledby="student-letters-title">
+      <div className="page-heading">
+        <div><span className="eyebrow">STUDENT SPACE</span><h1 id="student-letters-title">Letters</h1><p>View and manage letters received from the university.</p></div>
+      </div>
+      {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
+      {loading
+        ? <p className="form-intro" role="status">Loading your letters…</p>
+        : letters.length
+          ? <div className="student-letter-list">{letters.map((letter) => (
+            <article className="student-letter-item" key={letter.id}>
+              <div>
+                <h2>{letter.title}</h2>
+                <span>{letter.createdAt?.toDate?.().toLocaleDateString() || 'Recently sent'} · SAMPLE - NOT OFFICIAL</span>
+                <p>{letter.body}</p>
+              </div>
+              <div className="student-letter-actions">
+                <button className="button button-outline" type="button" onClick={() => downloadStudentLetterPdf(letter)}>Download letter PDF</button>
+                <button className="button button-danger" type="button" disabled={deletingId === letter.id} onClick={() => handleDelete(letter)}>
+                  {deletingId === letter.id ? 'Deleting…' : 'Delete letter'}
+                </button>
+              </div>
+            </article>
+          ))}</div>
+          : <p className="form-intro">Letters sent by the university will appear here.</p>}
+    </section>
+  );
+}
+
+function StudentDashboard({ user, profile, profileError, onCancelRequest, onUpdateRequest, onDeleteRequest, navigate }) {
   const confirm = useConfirmation();
   const [requests, setRequests] = useState([]);
-  const [letters, setLetters] = useState([]);
-  const [studentRecord, setStudentRecord] = useState(null);
-  const [studentRecordLoaded, setStudentRecordLoaded] = useState(false);
-  const [studentRecordError, setStudentRecordError] = useState('');
-  const [letterError, setLetterError] = useState('');
   const [requestError, setRequestError] = useState('');
   const [filter, setFilter] = useState('All requests');
   const [cancellingId, setCancellingId] = useState('');
   const [editingId, setEditingId] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [savingRequestId, setSavingRequestId] = useState('');
-  const [profileExpanded, setProfileExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!user?.email) {
-      setStudentRecord(null);
-      setStudentRecordLoaded(false);
-      setStudentRecordError('');
-      return undefined;
-    }
-    setStudentRecord(null);
-    setStudentRecordLoaded(false);
-    setStudentRecordError('');
-    return subscribeToStudentRecord(user.email, (record) => {
-      setStudentRecord(record);
-      setStudentRecordLoaded(true);
-      setStudentRecordError('');
-    }, (error) => {
-      setStudentRecordLoaded(true);
-      setStudentRecordError(error.message || 'Your student details could not be loaded.');
-    });
-  }, [user?.email]);
-
   useEffect(() => {
     if (!user) return undefined;
     return subscribeToStudentRequests(user.uid, (items) => {
@@ -465,14 +511,6 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
       setRequestError('');
     }, (error) => setRequestError(error.message || 'Requests could not be loaded.'));
   }, [user]);
-
-  useEffect(() => {
-    if (!user?.email || !onSubscribeToLetters) return undefined;
-    return onSubscribeToLetters(user.email, (items) => {
-      setLetters(items);
-      setLetterError('');
-    }, (error) => setLetterError(error.message || 'Letters could not be loaded.'));
-  }, [onSubscribeToLetters, user?.email]);
 
   const visibleRequests = useMemo(() => (
     filter === 'All requests' ? requests : requests.filter((request) => request.status === filter)
@@ -546,54 +584,17 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
   const openCount = requests.filter((request) => ['Pending', 'Accepted', 'In Progress'].includes(request.status)).length;
   const unpaidRequests = requests.filter((request) => getRequestFeeAmount(request) > 0 && request.feeStatus !== 'Paid');
   const outstandingTotal = unpaidRequests.reduce((total, request) => total + getRequestFeeAmount(request), 0);
-  const studentDetails = { ...profile, ...studentRecord };
+  const studentDetails = profile || {};
 
   return (
     <section className="content-wrap dashboard-wrap">
       <PageHeading
         eyebrow="YOUR STUDENT PORTAL"
         title={`Good to see you${studentDetails.name ? `, ${studentDetails.name.split(' ')[0]}` : ''}.`}
-        description="View your student information and keep an eye on your service requests."
+        description="Track your service requests. Open your account menu to view your student profile."
         action={<div className="dashboard-actions"><button className="button button-primary" onClick={() => navigate('/services')}>New request</button></div>}
       />
-      {(profileError || studentRecordError || requestError || letterError) && <p className="form-alert form-alert-error" role="alert">{profileError || studentRecordError || requestError || letterError}</p>}
-
-      <section className="profile-panel" aria-labelledby="student-profile-heading">
-        <div className="profile-panel-heading">
-          <div><span className="eyebrow">STUDENT PROFILE</span><h2 id="student-profile-heading">Your student details</h2><p>Open your profile to view the university record associated with your account.</p></div>
-          <button
-            className="button button-outline profile-toggle"
-            type="button"
-            aria-expanded={profileExpanded}
-            aria-controls="student-profile-details"
-            onClick={() => setProfileExpanded((expanded) => !expanded)}
-          >
-            <Icon name={profileExpanded ? 'close' : 'eye'} size={17} />
-            {profileExpanded ? 'Hide profile' : 'View profile'}
-          </button>
-        </div>
-        <div className="profile-lock-note">
-          <Icon name="key" size={17} />
-          <span><strong>Locked university information</strong> These details are read-only. Contact Student Affairs to request a correction.</span>
-        </div>
-        <div id="student-profile-details" hidden={!profileExpanded}>
-          {profileExpanded && (
-            !studentRecordLoaded
-              ? <p className="form-intro" role="status">Loading your university record…</p>
-              : <div className="profile-fields">
-                <div className="form-field"><label htmlFor="profile-name">Full name</label><input id="profile-name" name="profileName" value={studentDetails.name || user.displayName || ''} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-email">Email address</label><input id="profile-email" name="profileEmail" value={studentDetails.email || user.email || ''} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-student-id">Student number</label><input id="profile-student-id" name="profileStudentId" value={studentDetails.studentId || ''} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-faculty">Faculty</label><input id="profile-faculty" name="profileFaculty" value={studentDetails.faculty || 'Not assigned'} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-course">Course</label><input id="profile-course" name="profileCourse" value={studentDetails.course || 'Not assigned'} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-dob">Date of birth</label><input id="profile-dob" name="profileDateOfBirth" type="date" value={studentDetails.dateOfBirth || ''} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-birth-place">Place of birth</label><input id="profile-birth-place" name="profileBirthPlace" value={studentDetails.birthPlace || ''} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-phone">Mobile number</label><input id="profile-phone" name="profilePhone" value={studentDetails.phone || ''} readOnly /></div>
-                <div className="form-field"><label htmlFor="profile-address">Home address</label><textarea id="profile-address" name="profileAddress" value={studentDetails.address || ''} readOnly rows="3" /></div>
-              </div>
-          )}
-        </div>
-      </section>
+      {(profileError || requestError) && <p className="form-alert form-alert-error" role="alert">{profileError || requestError}</p>}
 
       <div className="dashboard-stats">
         <div><span>Total requests</span><strong>{requests.length}</strong><Icon name="document" size={19} /></div>
@@ -606,16 +607,6 @@ function StudentDashboard({ user, profile, profileError, onSubscribeToLetters, o
         <div className="dashboard-section-heading"><div><span className="eyebrow">STUDENT ACCOUNT</span><h2 id="fees-owed-title">Outstanding service fees</h2></div><strong>M{outstandingTotal.toFixed(2)}</strong></div>
         <div className="fee-list">{unpaidRequests.map((request) => <div className="fee-row" key={request.id}><span>{request.service}</span><strong>M{getRequestFeeAmount(request).toFixed(2)}</strong><span className="fee-unpaid">Unpaid</span></div>)}</div>
       </section>}
-
-      <section className="student-letters" aria-labelledby="student-letters-title">
-        <div className="dashboard-section-heading"><div><span className="eyebrow">LETTERS</span><h2 id="student-letters-title">Letters from the university</h2></div></div>
-        {letters.length ? <div className="student-letter-list">{letters.map((letter) => (
-          <article className="student-letter-item" key={letter.id}>
-            <div><h3>{letter.title}</h3><span>{letter.createdAt?.toDate?.().toLocaleDateString() || 'Recently sent'} · SAMPLE - NOT OFFICIAL</span><p>{letter.body}</p></div>
-            <button className="button button-outline" type="button" onClick={() => downloadStudentLetterPdf(letter)}>Download letter PDF</button>
-          </article>
-        ))}</div> : <p className="form-intro">Letters sent by the university will appear here.</p>}
-      </section>
 
       <div className="dashboard-section-heading">
         <div><span className="eyebrow">REQUEST HISTORY</span><h2>Your service requests</h2></div>
@@ -797,6 +788,7 @@ function AdminDashboard({
   const [editingStudentFaculty, setEditingStudentFaculty] = useState('');
   const [editingStudentCourse, setEditingStudentCourse] = useState('');
   const [studentFacultyFilter, setStudentFacultyFilter] = useState('all');
+  const [expandedStudentEmail, setExpandedStudentEmail] = useState('');
   const [courseFaculty, setCourseFaculty] = useState('');
 
   useEffect(() => setSection(initialSection), [initialSection]);
@@ -1282,32 +1274,16 @@ function AdminDashboard({
     staff: { title: 'Staff access', description: 'Add student records and manage authorized staff access.' },
     academics: { title: 'Academic options', description: 'Manage faculty and course choices for student records.' },
   };
-  const changeSection = (nextSection) => {
-    setSection(nextSection);
-    if (navigate) navigate(`/staff?view=${nextSection}`);
-  };
-
   return (
     <section className="content-wrap dashboard-wrap">
       <PageHeading eyebrow="ADMINISTRATION" title={sectionDetails[section].title} description={sectionDetails[section].description} />
-      <div className="staff-controls">
-        <div className="staff-tabs" role="tablist" aria-label="Staff record type">
-          <button role="tab" aria-selected={section === 'requests'} className={section === 'requests' ? 'active' : ''} onClick={() => changeSection('requests')}><Icon name="document" size={16} />Request queue <span>{requests.length}</span></button>
-          <button role="tab" aria-selected={section === 'inquiries'} className={section === 'inquiries' ? 'active' : ''} onClick={() => changeSection('inquiries')}><Icon name="message" size={16} />Public enquiries <span>{inquiries.length}</span></button>
-          <button role="tab" aria-selected={section === 'finance'} className={section === 'finance' ? 'active' : ''} onClick={() => changeSection('finance')}><Icon name="chart" size={16} />Finance & fees</button>
-          <button role="tab" aria-selected={section === 'services'} className={section === 'services' ? 'active' : ''} onClick={() => changeSection('services')}><Icon name="grid" size={16} />Service setup <span>{services.length}</span></button>
-          <button role="tab" aria-selected={section === 'students'} className={section === 'students' ? 'active' : ''} onClick={() => changeSection('students')}><Icon name="id" size={16} />Student directory <span>{students.length}</span></button>
-          <button role="tab" aria-selected={section === 'staff'} className={section === 'staff' ? 'active' : ''} onClick={() => changeSection('staff')}><Icon name="shield" size={16} />Staff access</button>
-          <button role="tab" aria-selected={section === 'academics'} className={section === 'academics' ? 'active' : ''} onClick={() => changeSection('academics')}><Icon name="university" size={16} />Academic options</button>
+      {['requests', 'inquiries', 'students'].includes(section) && <div className="staff-controls">
+        <label className="visually-hidden" htmlFor="staff-search">Search by name, email, student number, faculty, or course</label>
+        <div className="staff-search-wrap">
+          <Icon name="search" size={17} />
+          <input id="staff-search" className="staff-search" type="search" placeholder="Search name, email, student number, faculty, or course" value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
-        {['requests', 'inquiries', 'students'].includes(section) && <>
-            <label className="visually-hidden" htmlFor="staff-search">Search by name, email, student number, faculty, or course</label>
-            <div className="staff-search-wrap">
-              <Icon name="search" size={17} />
-              <input id="staff-search" className="staff-search" type="search" placeholder="Search name, email, student number, faculty, or course" value={query} onChange={(event) => setQuery(event.target.value)} />
-            </div>
-          </>}
-      </div>
+      </div>}
       {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
       {section === 'finance' && <AdminFinancePage requests={requests} />}
       {section === 'requests' && <div className="staff-records">
@@ -1385,20 +1361,31 @@ function AdminDashboard({
                   : editCourseOptions;
                 return (
                   <article className="student-directory-record" key={student.email}>
-                    <div className="student-directory-record-heading">
-                      <div><h3>{student.name}</h3><span>{student.studentId} · {student.email}</span></div>
-                      <div className="detail-actions">
-                        <button className="button button-outline" type="button" disabled={staffBusy || deletingStudentEmail === student.email} onClick={() => {
-                          if (editingStudentEmail === student.email) {
-                            setEditingStudentEmail('');
-                            setEditingStudentFaculty('');
-                            setEditingStudentCourse('');
-                          } else openStudentEditor(student);
-                        }}>{editingStudentEmail === student.email ? 'Cancel edit' : 'Edit details'}</button>
-                        <button className="button button-outline delete-link" type="button" disabled={deletingStudentEmail === student.email || staffBusy} onClick={() => handleDeleteStudent(student)}>{deletingStudentEmail === student.email ? 'Removing…' : 'Delete student'}</button>
+                    <button
+                      className="student-directory-toggle"
+                      type="button"
+                      aria-expanded={expandedStudentEmail === student.email}
+                      aria-controls={`student-details-${student.studentId}`}
+                      onClick={() => setExpandedStudentEmail((current) => current === student.email ? '' : student.email)}
+                    >
+                      <span>{student.name}</span>
+                      <span className="student-directory-toggle-indicator" aria-hidden="true">{expandedStudentEmail === student.email ? '−' : '+'}</span>
+                    </button>
+                    {expandedStudentEmail === student.email && <div id={`student-details-${student.studentId}`} className="student-directory-expanded">
+                      <div className="student-directory-record-heading">
+                        <span>{student.studentId} · {student.email}</span>
+                        <div className="detail-actions">
+                          <button className="button button-outline" type="button" disabled={staffBusy || deletingStudentEmail === student.email} onClick={() => {
+                            if (editingStudentEmail === student.email) {
+                              setEditingStudentEmail('');
+                              setEditingStudentFaculty('');
+                              setEditingStudentCourse('');
+                            } else openStudentEditor(student);
+                          }}>{editingStudentEmail === student.email ? 'Cancel edit' : 'Edit details'}</button>
+                          <button className="button button-outline delete-link" type="button" disabled={deletingStudentEmail === student.email || staffBusy} onClick={() => handleDeleteStudent(student)}>{deletingStudentEmail === student.email ? 'Removing…' : 'Delete student'}</button>
+                        </div>
                       </div>
-                    </div>
-                    {editingStudentEmail === student.email && <form className="request-form student-edit-form" noValidate onSubmit={(event) => handleUpdateStudent(event, student)} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
+                      {editingStudentEmail === student.email && <form className="request-form student-edit-form" noValidate onSubmit={(event) => handleUpdateStudent(event, student)} onChange={(event) => handleFormInput(event, setStaffValidationErrors)}>
                       <p className="form-intro">Update this student's university record. The sign-in email address cannot be changed here.</p>
                       <div className="profile-fields">
                         <div className="form-field"><label htmlFor={`edit-student-name-${student.studentId}`}>Full name</label><input id={`edit-student-name-${student.studentId}`} name="editStudentName" defaultValue={student.name} required minLength="2" maxLength="20" data-validation-type="name" /></div>
@@ -1415,15 +1402,16 @@ function AdminDashboard({
                       </div>
                       <ValidationErrors errors={staffValidationErrors} />
                       <button className="button button-primary" type="submit" disabled={staffBusy}>{staffBusy ? 'Saving details…' : 'Save student details'}</button>
-                    </form>}
-                    <dl className="student-directory-details">
-                      <div><dt>Date of birth</dt><dd>{student.dateOfBirth || 'Not recorded'}</dd></div>
-                      <div><dt>Place of birth</dt><dd>{student.birthPlace || 'Not recorded'}</dd></div>
-                      <div><dt>Contact</dt><dd>{student.phone || 'Not recorded'}</dd></div>
-                      <div><dt>Address</dt><dd>{student.address || 'Not recorded'}</dd></div>
-                      <div><dt>Faculty</dt><dd>{student.faculty || 'Not assigned'}</dd></div>
-                      <div><dt>Course</dt><dd>{student.course || 'Not assigned'}</dd></div>
-                    </dl>
+                      </form>}
+                      <dl className="student-directory-details">
+                        <div><dt>Date of birth</dt><dd>{student.dateOfBirth || 'Not recorded'}</dd></div>
+                        <div><dt>Place of birth</dt><dd>{student.birthPlace || 'Not recorded'}</dd></div>
+                        <div><dt>Contact</dt><dd>{student.phone || 'Not recorded'}</dd></div>
+                        <div><dt>Address</dt><dd>{student.address || 'Not recorded'}</dd></div>
+                        <div><dt>Faculty</dt><dd>{student.faculty || 'Not assigned'}</dd></div>
+                        <div><dt>Course</dt><dd>{student.course || 'Not assigned'}</dd></div>
+                      </dl>
+                    </div>}
                   </article>
                 );
               })}
@@ -1690,6 +1678,7 @@ export {
   RequestPage,
   ServiceDetailsPage,
   ServicesPage,
+  StudentLettersPage,
   StudentDashboard,
   SubmissionConfirmationPage,
   SuccessPage,

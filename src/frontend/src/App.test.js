@@ -11,6 +11,7 @@ import {
   NotificationsPage,
   RequestPage,
   ServicesPage,
+  StudentLettersPage,
   StudentDashboard,
   SubmissionConfirmationPage,
 } from './pages/PortalPages';
@@ -29,6 +30,7 @@ const subscribeToAcademicOptions = (callback) => {
       { faculty: 'Faculty of Business Management and Globalisation', name: 'Diploma in Marketing' },
     ],
   });
+
   return () => {};
 };
 
@@ -110,6 +112,112 @@ test('account menu shows the Google profile photo and signs out from its menu', 
   fireEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
 
   expect(onSignOut).toHaveBeenCalledTimes(1);
+});
+
+test('student account menu links to letters and opens a Google-photo profile before sign-out', () => {
+  const { subscribeToStudentRecord } = require('./models/portalRepository');
+  subscribeToStudentRecord.mockImplementationOnce((email, callback) => {
+    callback({
+      name: 'Google Student',
+      email,
+      studentId: '901019217',
+      dateOfBirth: '2002-03-04',
+      birthPlace: 'Maseru',
+      phone: '+26650123456',
+      address: '12 Main Street, Maseru',
+      faculty: 'Faculty of Design',
+      course: 'Diploma in Design',
+    });
+    return () => {};
+  });
+  const { container } = render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <SiteLayout
+        currentPath="/student"
+        user={{
+          displayName: 'Google Student',
+          email: 'student@example.com',
+          photoURL: 'https://example.com/google-photo.jpg',
+        }}
+        profile={{ name: 'Google Student' }}
+        isAdmin={false}
+        loading={false}
+        isOnline
+        onSignOut={jest.fn()}
+        onOpenNotifications={jest.fn()}
+      >
+        <div>Portal content</div>
+      </SiteLayout>
+    </MemoryRouter>,
+  );
+
+  const studentNavigation = screen.getByRole('navigation', { name: 'Student navigation' });
+  expect(within(studentNavigation).getByRole('link', { name: 'Letters' })).toHaveAttribute('href', '/letters');
+  fireEvent.click(screen.getByRole('button', { name: 'Account menu for Google Student' }));
+  const menu = screen.getByRole('menu');
+  expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['View profile', 'Sign out']);
+  expect(within(menu).getByRole('menuitem', { name: 'View profile' })).toHaveClass('portal-account-view-profile');
+  expect(within(menu).getByRole('menuitem', { name: 'Sign out' })).toHaveClass('portal-account-signout');
+  fireEvent.click(within(menu).getByRole('menuitem', { name: 'View profile' }));
+
+  expect(screen.getByRole('dialog', { name: 'Google Student' })).toBeInTheDocument();
+  expect(container.querySelector('.profile-dialog-photo img')).toHaveAttribute('src', 'https://example.com/google-photo.jpg');
+  expect(screen.getByText('901019217')).toBeInTheDocument();
+  expect(screen.getByText('Faculty of Design')).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: 'Verified student' })).toBeInTheDocument();
+  expect(screen.queryByLabelText('Student number')).not.toBeInTheDocument();
+});
+
+test('student profile is not marked verified while university records are incomplete', () => {
+  const { subscribeToStudentRecord } = require('./models/portalRepository');
+  subscribeToStudentRecord.mockImplementationOnce((email, callback) => {
+    callback({ name: 'Google Student', email, studentId: '901019217' });
+    return () => {};
+  });
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <SiteLayout
+        currentPath="/student"
+        user={{ displayName: 'Google Student', email: 'student@example.com' }}
+        profile={{ name: 'Google Student' }}
+        isAdmin={false}
+        loading={false}
+        isOnline
+        onSignOut={jest.fn()}
+        onOpenNotifications={jest.fn()}
+      >
+        <div>Portal content</div>
+      </SiteLayout>
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Account menu for Google Student' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'View profile' }));
+
+  expect(screen.queryByRole('img', { name: 'Verified student' })).not.toBeInTheDocument();
+});
+
+test('student letters can be read and deleted after confirmation', async () => {
+  const onDeleteLetter = jest.fn().mockResolvedValue(undefined);
+  render(
+    <ConfirmationProvider>
+      <StudentLettersPage
+        user={{ email: 'student@example.com' }}
+        onSubscribeToLetters={(email, callback) => {
+          expect(email).toBe('student@example.com');
+          callback([{ id: 'letter-1', title: 'Enrollment confirmation', body: 'Your enrollment is confirmed.' }]);
+          return () => {};
+        }}
+        onDeleteLetter={onDeleteLetter}
+      />
+    </ConfirmationProvider>,
+  );
+
+  expect(screen.getByText('Your enrollment is confirmed.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Delete letter' }));
+  const confirmation = screen.getByRole('alertdialog', { name: 'Delete this received letter?' });
+  fireEvent.click(within(confirmation).getByRole('button', { name: 'Delete letter' }));
+
+  await waitFor(() => expect(onDeleteLetter).toHaveBeenCalledWith('letter-1'));
 });
 
 test('admin navigation hides public university links and help content', () => {
@@ -308,6 +416,7 @@ jest.mock('./models/portalRepository', () => ({
   createStudentRecord: jest.fn(),
   createStudentRequest: jest.fn(),
   deleteStudentRequest: jest.fn(),
+  deleteStudentLetter: jest.fn(),
   deleteInquiry: jest.fn(),
   deleteRequest: jest.fn(),
   ensureUserProfile: jest.fn(),
@@ -655,7 +764,7 @@ test('request validation rejects overlong names and non-numeric student and phon
   expect(onStudentSubmit).not.toHaveBeenCalled();
 });
 
-test('student dashboard displays student details as read-only and shows academic assignment', () => {
+test('student dashboard shows request history without embedding the account profile', () => {
   const { subscribeToStudentRequests } = require('./models/portalRepository');
   subscribeToStudentRequests.mockImplementation((uid, callback) => {
     callback([{
@@ -666,21 +775,6 @@ test('student dashboard displays student details as read-only and shows academic
       date: 'Today',
       status: 'Accepted',
     }]);
-    return () => {};
-  });
-  const { subscribeToStudentRecord } = require('./models/portalRepository');
-  subscribeToStudentRecord.mockImplementationOnce((email, callback) => {
-    callback({
-      name: 'Student Example',
-      email: 'student@example.com',
-      studentId: '901019217',
-      dateOfBirth: '2002-03-04',
-      birthPlace: 'Maseru',
-      phone: '+26650123456',
-      address: '12 Main Street, Maseru',
-      faculty: 'Faculty of Information & Communication Technology',
-      course: 'Diploma in Information Technology',
-    });
     return () => {};
   });
   render(
@@ -698,20 +792,7 @@ test('student dashboard displays student details as read-only and shows academic
   expect(screen.getAllByText('Accepted').length).toBeGreaterThan(0);
   expect(screen.getAllByText('M100.00').length).toBeGreaterThan(0);
   expect(screen.getByRole('heading', { name: 'Outstanding service fees' })).toBeInTheDocument();
-  expect(screen.queryByLabelText('Faculty')).not.toBeInTheDocument();
-  expect(screen.getByText('Locked university information')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'View profile' }));
-  expect(screen.getByRole('button', { name: 'Hide profile' })).toHaveAttribute('aria-expanded', 'true');
-  expect(screen.getByLabelText('Faculty')).toHaveValue('Faculty of Information & Communication Technology');
-  expect(screen.getByLabelText('Course')).toHaveValue('Diploma in Information Technology');
-  expect(screen.queryByRole('button', { name: 'Edit profile' })).not.toBeInTheDocument();
-  expect(screen.getByLabelText('Full name')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('Email address')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('Student number')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('Mobile number')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('Home address')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('Date of birth')).toHaveAttribute('readonly');
-  expect(screen.getByLabelText('Place of birth')).toHaveAttribute('readonly');
+  expect(screen.queryByRole('button', { name: 'View profile' })).not.toBeInTheDocument();
 });
 
 test('staff can accept a pending request', async () => {
@@ -763,6 +844,7 @@ test('staff can add a student record and grant admin access to Google accounts',
     />,
   );
 
+  expect(screen.queryByRole('tablist', { name: 'Staff record type' })).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Student Example' } });
   fireEvent.change(document.querySelector('#student-email'), { target: { value: 'student@example.com' } });
   fireEvent.change(screen.getByLabelText('Student number'), { target: { value: '901019217' } });
@@ -935,6 +1017,7 @@ test('admin can remove a student from the searchable directory', async () => {
     />,
   );
 
+  fireEvent.click(screen.getByRole('button', { name: 'Student Example' }));
   expect(screen.getByText('12 Main Street, Maseru')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Delete student' }));
   await waitFor(() => expect(onDeleteStudent).toHaveBeenCalledWith('student@example.com'));
@@ -967,9 +1050,13 @@ test('admin groups student records by faculty and filters the directory', () => 
 
   expect(screen.getByRole('heading', { name: 'Faculty A' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Faculty B' })).toBeInTheDocument();
+  expect(screen.queryByText('901019217')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Alex Student' }));
+  expect(screen.getByText(/901019217/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Filter by faculty'), { target: { value: 'Faculty B' } });
   expect(screen.getByText('Sam Student')).toBeInTheDocument();
   expect(screen.queryByText('Alex Student')).not.toBeInTheDocument();
+  expect(screen.queryByText(/901019218/)).not.toBeInTheDocument();
 });
 
 test('admin can edit a student record and change the faculty and course assignment', async () => {
@@ -1007,6 +1094,7 @@ test('admin can edit a student record and change the faculty and course assignme
     />,
   );
 
+  fireEvent.click(screen.getByRole('button', { name: 'Student Example' }));
   fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Updated Student' } });
   fireEvent.change(screen.getByLabelText('Faculty'), { target: { value: 'Faculty of Business Management and Globalisation' } });
