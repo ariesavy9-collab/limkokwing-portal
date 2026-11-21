@@ -2070,3 +2070,72 @@ body,
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 600px) {
+  .request-list,
+  .request-item,
+  .request-item-main {
+    min-width: 0;
+  }
+
+  .request-item {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .request-item-main {
+    width: 100%;
+  }
+
+  .request-reference {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+  }
+
+  .request-item-main h3,
+  .request-item-main > p,
+  .request-date,
+  .request-fee {
+    overflow-wrap: anywhere;
+  }
+
+  .request-item-status {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .request-item-status .status-pill {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .request-item-status .text-button,
+  .request-item-status .button,
+  .request-item-main .request-pdf-link {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+
+  .request-item-main .request-pdf-link {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .request-item-status {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
