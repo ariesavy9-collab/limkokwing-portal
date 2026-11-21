@@ -309,10 +309,6 @@ function SiteLayout({
             </div>
           )}
           {children}
-          <footer className="portal-footer">
-            <span>Limkokwing University of Creative Technology, Lesotho</span>
-            <span>© {new Date().getFullYear()} Limkokwing University</span>
-          </footer>
         </main>
         <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
           {mobileLinks.map((link) => {

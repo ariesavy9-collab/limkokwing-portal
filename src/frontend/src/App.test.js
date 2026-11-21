@@ -605,7 +605,8 @@ test('the app opens directly on the student and staff login form', () => {
   expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
   expect(screen.getByText('Need assistance?')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Contact Registry' })).toHaveAttribute('href', 'mailto:registry@limkokwing.ac.ls');
-  expect(screen.getByText('Limkokwing University of Creative Technology, Lesotho')).toBeInTheDocument();
+  expect(screen.queryByText('Limkokwing University of Creative Technology, Lesotho')).not.toBeInTheDocument();
+  expect(screen.queryByText('YOUR STUDENT PORTAL')).not.toBeInTheDocument();
   expect(screen.queryByText('STUDENT & ADMINISTRATION PORTAL')).not.toBeInTheDocument();
   expect(screen.queryByText('SECURE UNIVERSITY ACCESS')).not.toBeInTheDocument();
   expect(screen.queryByText(/contact Student Affairs if you need access/i)).not.toBeInTheDocument();

@@ -65,9 +65,6 @@ function AuthDialog({ onClose = noop, onSuccess, fullPage = false }) {
               <span>Need assistance?</span>
               <a href="mailto:registry@limkokwing.ac.ls">Contact Registry</a>
             </div>
-            <footer className="auth-screen-footer">
-              Limkokwing University of Creative Technology, Lesotho
-            </footer>
           </>
         )}
       </section>

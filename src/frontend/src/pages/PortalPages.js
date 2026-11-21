@@ -589,7 +589,6 @@ function StudentDashboard({ user, profile, profileError, onCancelRequest, onUpda
   return (
     <section className="content-wrap dashboard-wrap">
       <PageHeading
-        eyebrow="YOUR STUDENT PORTAL"
         title={`Good to see you${studentDetails.name ? `, ${studentDetails.name.split(' ')[0]}` : ''}.`}
         description="Track your service requests. Open your account menu to view your student profile."
         action={<div className="dashboard-actions"><button className="button button-primary" onClick={() => navigate('/services')}>New request</button></div>}
