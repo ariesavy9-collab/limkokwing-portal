@@ -42,11 +42,16 @@ async function grantInitialStaffAccess() {
     }
   }
 
-  await db.collection('portalSettings').doc('academicOptions').set({
-    faculties: [],
-    courses: [],
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  const academicOptionsRef = db.collection('portalSettings').doc('academicOptions');
+  try {
+    await academicOptionsRef.create({
+      faculties: [],
+      courses: [],
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    if (error.code !== 6 && error.code !== 'already-exists') throw error;
+  }
 
   console.log(`Initial administrator configured: ${email}`);
   console.log('Firestore collections and the academic-options settings document are initialized.');
