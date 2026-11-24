@@ -51,20 +51,64 @@ export function subscribeToStudentProfile(uid, onProfile, onError) {
   );
 }
 
-export async function createStudentRequest(uid, request) {
+export async function createStudentRequest(user, request) {
+  const email = user?.email?.trim().toLowerCase();
+  if (!email) {
+    throw new Error('Your signed-in account has no email address. Sign in again and retry.');
+  }
+
+  const directorySnapshot = await getDoc(doc(db, 'studentDirectory', email));
+  if (!directorySnapshot.exists()) {
+    const error = new Error('Your student record could not be found in the directory. Contact Registry before submitting again.');
+    error.code = 'student-directory-missing';
+    throw error;
+  }
+
+  const directory = directorySnapshot.data();
+  const directoryStudentId = String(directory.studentId || '').trim();
+  const directoryName = String(directory.name || '').trim();
+  const directoryPhone = String(directory.phone || '').trim();
+
+  if (directory.email?.trim().toLowerCase() !== email
+    || !/^90[0-9]{7}$/.test(directoryStudentId)
+    || !directoryName) {
+    const error = new Error('Your student directory record is incomplete or inconsistent. Contact Registry for verification.');
+    error.code = 'student-directory-invalid';
+    throw error;
+  }
+
+  const submittedStudentId = String(request.studentId || '').trim();
+  const submittedName = String(request.studentName || '').trim();
+  if (submittedStudentId !== directoryStudentId || (submittedName && submittedName !== directoryName)) {
+    const error = new Error('The submitted identity does not match the verified student directory record.');
+    error.code = 'student-identity-mismatch';
+    throw error;
+  }
+
+  const displayFee = String(request.fee || '').trim();
+  const feeMatch = displayFee.match(/[0-9]+(?:\.[0-9]+)?/);
+  const feeAmount = Number.isFinite(request.feeAmount)
+    ? request.feeAmount
+    : Number(displayFee === 'No fee' ? 0 : feeMatch?.[0] || 0);
+  if (!Number.isFinite(feeAmount) || feeAmount < 0) {
+    const error = new Error('The service fee is invalid. No request was submitted.');
+    error.code = 'invalid-service-fee';
+    throw error;
+  }
+
   const reference = await addDoc(collection(db, 'serviceRequests'), {
-    ownerUid: uid,
-    studentName: request.studentName.trim(),
-    studentId: request.studentId.trim(),
-    email: request.email.trim().toLowerCase(),
-    phone: request.phone.trim(),
+    ownerUid: user.uid,
+    studentName: directoryName,
+    studentId: directoryStudentId,
+    email,
+    phone: directoryPhone || String(request.phone || '').trim(),
     serviceId: request.serviceId,
     service: request.service,
     description: request.description.trim(),
     date: request.date,
-    fee: request.fee,
-    feeAmount: request.feeAmount,
-    feeStatus: request.feeAmount > 0 ? 'Unpaid' : 'No fee',
+    fee: displayFee,
+    feeAmount,
+    feeStatus: feeAmount > 0 ? 'Unpaid' : 'No fee',
     status: 'Pending',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -259,7 +303,7 @@ export async function sendStudentLetterAndAcceptRequest(requestId, letter) {
     title: letter.title.trim(),
     body: letter.body.trim(),
     createdBy: letter.createdBy.trim().toLowerCase(),
-    status: 'Draft - not official',
+    status: 'Pending',
     createdAt: serverTimestamp(),
   });
   batch.update(doc(db, 'serviceRequests', requestId), {

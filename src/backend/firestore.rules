@@ -143,7 +143,7 @@ service cloud.firestore {
         && validText(request.resource.data.title, 3, 120)
         && validText(request.resource.data.body, 20, 5000)
         && request.resource.data.createdBy == request.auth.token.email
-        && request.resource.data.status == 'Draft - not official'
+        && request.resource.data.status == 'Pending'
         && request.resource.data.createdAt == request.time;
       allow update: if false;
       allow delete: if staff()

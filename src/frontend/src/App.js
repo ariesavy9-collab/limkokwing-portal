@@ -94,7 +94,7 @@ function RequestRoute({ services, user, profile, navigate }) {
       service={service}
       user={user}
       profile={profile}
-      onStudentSubmit={(request) => createStudentRequest(user.uid, request)}
+      onStudentSubmit={(request) => createStudentRequest(user, request)}
       onSubmitted={(submission) => navigate('/submitted', { state: { submission } })}
       navigate={navigate}
     />

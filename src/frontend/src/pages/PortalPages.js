@@ -421,7 +421,21 @@ function RequestPage({ service, user, profile, onStudentSubmit, onPublicSubmit, 
       if (onSubmitted) onSubmitted(submission);
       else setSuccess(`${isStudentRequest ? 'Request submitted successfully' : 'Enquiry sent successfully'}. Reference: ${reference}`);
     } catch (submitError) {
-      setError(submitError.message || 'Your request could not be submitted. Please try again.');
+      if (submitError.code === 'student-directory-missing') {
+        setError('You are not registered in the student directory. Contact Registry before submitting again.');
+      } else if (submitError.code === 'student-directory-invalid') {
+        setError('Your student record is incomplete or inconsistent. Contact Registry for verification.');
+      } else if (submitError.code === 'student-identity-mismatch') {
+        setError('Student information does not match the verified directory record. Refresh and try again.');
+      } else if (submitError.code === 'invalid-service-fee') {
+        setError('The service fee is invalid. No request was submitted.');
+      } else if (submitError.code === 'permission-denied') {
+        setError('Your request was denied by Firestore security rules. Verify that you are signed in and registered.');
+      } else if (submitError.code === 'unavailable' || submitError.code === 'network-request-failed') {
+        setError('The network is unavailable. Check your connection and try again.');
+      } else {
+        setError(submitError.message || 'Your request could not be submitted. Please try again.');
+      }
     } finally {
       setBusy(false);
     }
