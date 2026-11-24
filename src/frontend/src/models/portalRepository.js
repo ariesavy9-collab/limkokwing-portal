@@ -46,7 +46,10 @@ export function subscribeToStudentProfile(uid, onProfile, onError) {
   return onSnapshot(
     doc(db, 'users', uid),
     { includeMetadataChanges: true },
-    (snapshot) => onProfile(snapshot.exists() ? snapshot.data() : null, snapshot.metadata.fromCache),
+    (snapshot) => {
+      const profile = snapshot.exists() ? snapshot.data() : null;
+      onProfile(profile?.system ? null : profile, snapshot.metadata.fromCache);
+    },
     onError,
   );
 }
@@ -213,6 +216,7 @@ function watchCollection(collectionName, callback, onError, ownerUid) {
   return onSnapshot(baseQuery, (snapshot) => {
     const documents = snapshot.docs
       .map((item) => ({ id: item.id, ...item.data() }))
+      .filter((item) => !item.system)
       .sort((first, second) => {
         const firstDate = first.createdAt?.toMillis?.() || 0;
         const secondDate = second.createdAt?.toMillis?.() || 0;
@@ -232,6 +236,7 @@ export function subscribeToNotifications(uid, callback, onError) {
     (snapshot) => {
       const notifications = snapshot.docs
         .map((item) => ({ id: item.id, ...item.data() }))
+        .filter((item) => !item.system)
         .sort((first, second) => (
           (second.createdAt?.toMillis?.() || 0) - (first.createdAt?.toMillis?.() || 0)
         ));

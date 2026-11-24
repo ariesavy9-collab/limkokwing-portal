@@ -1,26 +1,58 @@
 const { initializeApp } = require('firebase-admin/app');
 const { FieldValue, getFirestore } = require('firebase-admin/firestore');
 
-const email = process.argv[2]?.trim().toLowerCase();
+const email = 'kabeloselomo313@gmail.com';
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'limkokwing-university';
-
-if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-  console.error('Usage: node scripts/set-admin-access.js <email>');
-  process.exit(1);
-}
+const initializedCollections = [
+  'adminUsers',
+  'studentDirectory',
+  'studentLetters',
+  'portalSettings',
+  'users',
+  'serviceRequests',
+  'publicInquiries',
+  'services',
+  'notifications',
+];
 
 initializeApp({ projectId });
 
 async function grantInitialStaffAccess() {
-  await getFirestore().collection('adminUsers').doc(email).set({
+  const db = getFirestore();
+  await db.collection('adminUsers').doc(email).set({
     email,
     name: email,
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
-  console.log(`Staff access granted to ${email}. They can now sign in with Google.`);
+
+  for (const collectionName of initializedCollections) {
+    const markerRef = db.collection(collectionName).doc('__portal_system_init__');
+    try {
+      await markerRef.create({
+        system: true,
+        type: 'collection-initialization',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      if (error.code !== 6 && error.code !== 'already-exists') throw error;
+      const existing = await markerRef.get();
+      if (existing.data()?.system !== true) {
+        throw new Error(`Cannot initialize ${collectionName}: reserved marker document already contains non-system data.`);
+      }
+    }
+  }
+
+  await db.collection('portalSettings').doc('academicOptions').set({
+    faculties: [],
+    courses: [],
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  console.log(`Initial administrator configured: ${email}`);
+  console.log('Firestore collections and the academic-options settings document are initialized.');
 }
 
 grantInitialStaffAccess().catch((error) => {
-  console.error(`Could not create the adminUsers record: ${error.message}`);
+  console.error(`Could not initialize Firestore: ${error.message}`);
   process.exitCode = 1;
 });

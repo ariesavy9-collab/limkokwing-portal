@@ -18,7 +18,7 @@ The app uses the Limkokwing Firebase project configured in `src/frontend/src/mod
 3. The default Firestore database is already present in the configured project. Ensure the Authentication providers and authorized domains above are configured before testing sign-in.
 4. The repository is linked to the `limkokwing-university` Firebase project. To publish the Firestore rules, run `firebase deploy --only firestore:rules` after reviewing the rules and confirming the target project.
 5. After installing dependencies at the repository root, deploy the protected student-removal and request-notification functions using `firebase deploy --only functions`.
-6. Bootstrap the first administrator by setting `GOOGLE_CLOUD_PROJECT=limkokwing-university` and running `node src/backend/functions/scripts/set-admin-access.js kabeloselomo313@gmail.com` with Google Cloud Application Default Credentials or a Firebase Admin service-account credential stored outside the repository. This writes the initial `adminUsers/{email}` record; the person can then sign in with Google. Never put a service-account key in the browser or repository, and revoke it after use. Once an administrator is set up, additional admins can be granted from the staff workspace.
+6. Bootstrap the first administrator and initialize Firestore by setting `GOOGLE_CLOUD_PROJECT=limkokwing-university` and running `node src/backend/functions/scripts/set-admin-access.js` with Google Cloud Application Default Credentials or a Firebase Admin service-account credential stored outside the repository. The idempotent script configures `kabeloselomo313@gmail.com`, creates the empty academic-options settings document, and initializes each application collection with a hidden system marker. The person can then sign in with Google. Never put a service-account key in the browser or repository, and revoke it after use. Once an administrator is set up, additional admins can be granted from the staff workspace.
 7. Build and publish the web app with `npm run build` and `firebase deploy --only hosting`. The `admin.html` shortcut redirects into the existing staff workspace; it does not provide a separate login or bypass the `adminUsers` check.
 
 Cloud Functions deployment may require the Firebase project to use the Blaze billing plan. Review current Firebase pricing and enable billing only if required for your project.
@@ -41,7 +41,7 @@ Cloud Functions deployment may require the Firebase project to use the Blaze bil
 
 ## Firestore collections
 
-Firestore does not support creating an empty collection on its own; a collection appears when its first document is written. The portal creates documents as people use it:
+Firestore does not support creating an empty collection on its own; the bootstrap script creates each application collection using a hidden system marker, and the portal filters these markers from records and notifications. Actual records are created from real user input and normal workflows:
 
 - `studentDirectory` — student identity, contact, faculty, and course details; created by an administrator before student sign-in and readable by the student whose email matches the document.
 - `studentLetters` — generated draft letters, readable by the addressed student and administrators only; a student may delete only letters addressed to their own account.

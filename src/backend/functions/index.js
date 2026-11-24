@@ -24,6 +24,7 @@ async function createNotification(eventId, notification) {
 
 async function getAdminUid(adminDocument) {
   const record = adminDocument.data();
+  if (record.system === true) return null;
   if (typeof record.uid === 'string' && record.uid) return record.uid;
 
   const email = (typeof record.email === 'string' ? record.email : adminDocument.id).trim().toLowerCase();
@@ -56,7 +57,7 @@ exports.notifyOnRequestCreated = onDocumentCreated({
   region: 'us-central1',
 }, async (event) => {
   const request = event.data?.data();
-  if (!request?.ownerUid) return;
+  if (!request?.ownerUid || request.system === true) return;
 
   await createNotification(event.id, {
     ownerUid: request.ownerUid,
@@ -67,7 +68,9 @@ exports.notifyOnRequestCreated = onDocumentCreated({
   });
 
   const administrators = await db.collection('adminUsers').get();
-  const adminUids = await Promise.all(administrators.docs.map(getAdminUid));
+  const adminUids = await Promise.all(administrators.docs
+    .filter((adminDocument) => adminDocument.data().system !== true)
+    .map(getAdminUid));
   await Promise.all(adminUids.filter(Boolean).map((uid) => createNotification(event.id, {
     ownerUid: uid,
     type: 'request',
@@ -83,7 +86,8 @@ exports.notifyOnRequestStatusChanged = onDocumentUpdated({
 }, async (event) => {
   const before = event.data?.before.data();
   const after = event.data?.after.data();
-  if (!before || !after || before.status === after.status || !after.ownerUid) return;
+  if (!before || !after || before.system === true || after.system === true
+    || before.status === after.status || !after.ownerUid) return;
 
   const service = after.service || 'your university service request';
   const statusMessages = {
@@ -128,6 +132,7 @@ exports.notifyOnStudentLetterCreated = onDocumentCreated({
   region: 'us-central1',
 }, async (event) => {
   const letter = event.data?.data();
+  if (letter?.system === true) return;
   const email = typeof letter?.studentEmail === 'string' ? letter.studentEmail.trim().toLowerCase() : '';
   if (!email) return;
 
@@ -156,7 +161,7 @@ exports.notifyOnProfileCreated = onDocumentCreated({
   region: 'us-central1',
 }, async (event) => {
   const profile = event.data?.data();
-  if (!profile) return;
+  if (!profile || profile.system === true) return;
 
   await createNotification(event.id, {
     ownerUid: event.params.userId,
@@ -172,7 +177,7 @@ exports.notifyOnProfileUpdated = onDocumentUpdated({
 }, async (event) => {
   const before = event.data?.before.data();
   const after = event.data?.after.data();
-  if (!before || !after) return;
+  if (!before || !after || before.system === true || after.system === true) return;
 
   const changedProfile = ['name', 'studentId', 'phone'].some((field) => before[field] !== after[field]);
   if (!changedProfile) return;

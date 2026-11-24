@@ -1,0 +1,9 @@
+node_modules/
+src/frontend/node_modules/
+src/backend/functions/node_modules/
+build/
+src/frontend/build/
+.env
+.env.*
+*.log
+.firebase/
