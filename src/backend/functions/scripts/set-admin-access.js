@@ -26,7 +26,7 @@ async function grantInitialStaffAccess() {
   }, { merge: true });
 
   for (const collectionName of initializedCollections) {
-    const markerRef = db.collection(collectionName).doc('__portal_system_init__');
+    const markerRef = db.collection(collectionName).doc('portal-system-init');
     try {
       await markerRef.create({
         system: true,
