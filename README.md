@@ -31,7 +31,8 @@ Cloud Functions deployment may require the Firebase project to use the Blaze bil
 - Students can browse and request student-only services; visitor services and public enquiry forms are not exposed in the portal.
 - Administrators register and edit students' name, student number, date/place of birth, phone, address, faculty, and course. Faculty and course are entered against current Lesotho campus records rather than an unverified preset list. A student's sign-in email remains fixed to their Google account. The directory can be searched by name, email, student number, faculty, or course; students can view their full record but cannot edit it.
 - Administrators can remove a student and their portal account, profile, requests, notifications, and draft letters through a protected Cloud Function.
-- In-app notifications are sent to administrators when a student submits a request and to students when their request is accepted, rejected, or otherwise updated. Students also receive a notification when a new letter is available in Letters. Unread counts update in the signed-in portal.
+- In-app notifications are sent to administrators when a student submits a request or sends a live-chat message, and to students when a request status changes (including acceptance), a staff member replies in chat, or a new letter is available. Unread counts update in the signed-in portal.
+- Technical support is available as a student service request. General enquiry opens a persistent, real-time chat conversation with university staff; staff reply from the Live chat inbox in the administration workspace.
 - Recommendation requests can be turned into editable letter drafts with an automatically placed university logo, recipient address, reference, and date. PDFs are clearly marked as drafts and reserve space for an authorized signature and stamp; they do not reproduce official seals or signatures. Sending a draft accepts the request in the same Firestore batch; students can open the dedicated Letters navigation page, read or download received letters, and delete their own copies.
 - Validated student request submission with live request history and edit/delete controls for pending requests. Student profile details are read-only, shown from the Google account menu, and managed by the university; the profile displays a verification badge only when all university record fields are present. Unregistered Google accounts receive a Registry contact message. Student numbers must contain nine digits and start with `90` (for example, `901019217`).
 - Student dashboard fee ledger that records service-fee snapshots against requests and shows outstanding charges. Administrators can update payment status.
@@ -50,7 +51,8 @@ Firestore does not support creating an empty collection on its own; the bootstra
 - `serviceRequests` — created when a signed-in student submits a service request.
 - `publicInquiries` — legacy public enquiries retained for administrator review; the public enquiry form is no longer available.
 - `services` — created when authorized staff add a custom service.
-- `notifications` — created by Cloud Functions for request submissions and status changes; each signed-in user can read and mark only their own notifications as read.
+- `notifications` — created by Cloud Functions for request submissions, status changes, and live-chat messages; each signed-in user can read and mark only their own notifications as read.
+- `chatRooms` — one private real-time conversation per registered student, with a `messages` subcollection; only the student who owns the room and authorized staff can read or send messages.
 
 No demo student accounts or sample personal requests are written to the database. Firestore rules bind requests and profile student numbers to the pre-approved student directory, and authorize staff operations using the signed-in email's `adminUsers` record.
 

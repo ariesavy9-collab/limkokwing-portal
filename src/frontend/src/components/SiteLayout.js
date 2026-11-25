@@ -44,6 +44,7 @@ function SiteLayout({
       links: [
         { label: 'Student home', path: '/student', icon: 'user' },
         { label: 'Browse services', path: '/services', icon: 'grid' },
+        { label: 'Live chat', path: '/chat', icon: 'message' },
         { label: 'Letters', path: '/letters', icon: 'document' },
         { label: 'Notifications', path: '/notifications', icon: 'bell' },
       ],
@@ -56,6 +57,7 @@ function SiteLayout({
       links: [
         { label: 'Request queue', path: '/staff?view=requests', section: 'requests', icon: 'document' },
         { label: 'Public enquiries', path: '/staff?view=inquiries', section: 'inquiries', icon: 'message' },
+        { label: 'Live chat inbox', path: '/staff?view=chat', section: 'chat', icon: 'message' },
         { label: 'Finance & fees', path: '/staff?view=finance', section: 'finance', icon: 'chart' },
         { label: 'Student directory', path: '/staff?view=students', section: 'students', icon: 'id' },
         { label: 'Service setup', path: '/staff?view=services', section: 'services', icon: 'grid' },
@@ -70,12 +72,14 @@ function SiteLayout({
     '/student': 'Student home',
     '/letters': 'Letters',
     '/services': 'Services',
+    '/chat': 'Live chat',
     '/courses': 'Courses and programmes',
     '/fees': 'Tuition and fees',
     '/contact': 'Help & support',
     '/staff': {
       requests: 'Request queue',
       inquiries: 'Public enquiries',
+      chat: 'Live chat inbox',
       finance: 'Finance & fees',
       students: 'Student directory',
       services: 'Service setup',

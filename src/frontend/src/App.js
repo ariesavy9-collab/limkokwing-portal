@@ -14,6 +14,7 @@ import useConfirmation, { ConfirmationProvider } from './components/Confirmation
 import SiteLayout from './components/SiteLayout';
 import {
   AdminDashboard,
+  ChatPage,
   NotificationsPage,
   RequestPage,
   ServiceDetailsPage,
@@ -74,7 +75,7 @@ function ServiceRoute({ services, navigate }) {
     <ServiceDetailsPage
       service={service}
       navigate={navigate}
-      onRequest={() => navigate(`/request/${service.id}`)}
+      onRequest={() => navigate(service.id === 'enquiry' ? '/chat' : `/request/${service.id}`)}
     />
   );
 }
@@ -111,7 +112,7 @@ function PortalApp() {
   const requestedStaffSection = new URLSearchParams(location.search).get('view');
   const staffSection = requestedStaffSection === 'accounts'
     ? 'staff'
-    : ['requests', 'inquiries', 'students', 'finance', 'services', 'staff', 'academics'].includes(requestedStaffSection)
+    : ['requests', 'inquiries', 'chat', 'students', 'finance', 'services', 'staff', 'academics'].includes(requestedStaffSection)
       ? requestedStaffSection
       : 'requests';
   const [notice, setNotice] = useState(null);
@@ -204,6 +205,11 @@ function PortalApp() {
           : <Navigate to={isAdmin ? '/staff' : '/student'} replace />} />
         <Route path="services" element={<ServicesPage navigate={navigate} services={services} serviceError={servicesError} />} />
         <Route path="services/:serviceId" element={<ServiceRoute services={services} navigate={navigate} />} />
+        <Route path="chat" element={loading || !user
+          ? <div className="content-wrap" role="status">Checking student access…</div>
+          : isAdmin
+            ? <Navigate to="/staff?view=chat" replace />
+            : <ChatPage user={user} />} />
         <Route path="request/:serviceId" element={<RequestRoute services={services} user={user} profile={profile} navigate={navigate} />} />
         <Route path="student" element={user ? (
           <StudentDashboard
@@ -235,6 +241,8 @@ function PortalApp() {
           <NotificationsPage
             notifications={notifications}
             error={notificationError}
+            navigate={navigate}
+            isAdmin={isAdmin}
             onMarkRead={markNotificationRead}
             onMarkAllRead={() => markAllNotificationsRead(notifications)}
           />
@@ -242,6 +250,8 @@ function PortalApp() {
         <Route path="staff" element={isAdmin ? (
           <AdminDashboard
             services={services}
+            adminEmail={user.email}
+            staffUser={user}
             onCreateService={createService}
             onUpdateStatus={setRequestStatus}
             onDeleteRequest={deleteRequest}
@@ -253,7 +263,6 @@ function PortalApp() {
             onUpdateStudent={updateStudentRecord}
             onSubscribeToAcademicOptions={subscribeToAcademicOptions}
             onSaveAcademicOptions={saveAcademicOptions}
-            adminEmail={user.email}
             initialSection={staffSection}
             navigate={navigate}
           />

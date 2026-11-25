@@ -5,11 +5,13 @@ import { ConfirmationProvider } from './components/ConfirmationDialog';
 import SiteLayout from './components/SiteLayout';
 import {
   AdminDashboard,
+  ChatPage,
   CoursesPage,
   ContactPage,
   FeesPage,
   NotificationsPage,
   RequestPage,
+  ServiceDetailsPage,
   ServicesPage,
   StudentLettersPage,
   StudentDashboard,
@@ -497,8 +499,10 @@ jest.mock('./models/portalRepository', () => ({
   deleteStudentLetter: jest.fn(),
   deleteInquiry: jest.fn(),
   deleteRequest: jest.fn(),
+  ensureStudentChatRoom: jest.fn(() => Promise.resolve('student-chat-room')),
   ensureUserProfile: jest.fn(),
   sendStudentLetterAndAcceptRequest: jest.fn(),
+  sendChatMessage: jest.fn(),
   setInquiryStatus: jest.fn(),
   setRequestStatus: jest.fn(),
   setRequestFeeStatus: jest.fn(),
@@ -540,6 +544,14 @@ jest.mock('./models/portalRepository', () => ({
     return () => {};
   }),
   subscribeToPublicInquiries: () => () => {},
+  subscribeToChatMessages: jest.fn((roomId, callback) => {
+    callback([]);
+    return () => {};
+  }),
+  subscribeToChatRooms: jest.fn((callback) => {
+    callback([]);
+    return () => {};
+  }),
   subscribeToStudentRecords: jest.fn((callback) => {
     callback([]);
     return () => {};
@@ -566,13 +578,13 @@ jest.mock('./models/portalRepository', () => ({
   }),
 }));
 
-test('student service directory filters student-only services', () => {
+test('student service directory includes live support services', () => {
   render(<ServicesPage navigate={jest.fn()} services={services} />);
 
-  expect(screen.getByText('4 services')).toBeInTheDocument();
+  expect(screen.getByText('6 services')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Academic transcript' })).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'General enquiry' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'Technical support' })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'General enquiry' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Technical support' })).toBeInTheDocument();
 
   fireEvent.change(screen.getByRole('searchbox', { name: /search university services/i }), {
     target: { value: 'transcript' },
@@ -583,12 +595,41 @@ test('student service directory filters student-only services', () => {
   expect(screen.queryByText('Students')).not.toBeInTheDocument();
 });
 
-test('student service directory excludes visitor services', () => {
+test('general enquiry service opens live chat', () => {
+  const onRequest = jest.fn();
+  render(
+    <ServiceDetailsPage
+      service={services.find((service) => service.id === 'enquiry')}
+      navigate={jest.fn()}
+      onRequest={onRequest}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Start live chat' }));
+
+  expect(onRequest).toHaveBeenCalledTimes(1);
+  expect(document.querySelector('.detail-instructions')).toHaveTextContent(/replies will appear in this chat/i);
+});
+
+test('student live chat sends messages through the shared conversation', async () => {
+  const user = { uid: 'student-uid', email: 'student@example.com', displayName: 'Student Example' };
+  require('./models/portalRepository').ensureStudentChatRoom.mockResolvedValue('student-chat-room');
+  render(<ChatPage user={user} />);
+
+  const messageField = await screen.findByRole('textbox', { name: 'Your message' });
+  fireEvent.change(messageField, { target: { value: 'I need help with course registration.' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+  await waitFor(() => expect(require('./models/portalRepository').sendChatMessage)
+    .toHaveBeenCalledWith('student-chat-room', user, 'I need help with course registration.'));
+});
+
+test('student service directory includes student technical support', () => {
   render(<ServicesPage navigate={jest.fn()} services={services} />);
 
-  expect(screen.getByText('4 services')).toBeInTheDocument();
+  expect(screen.getByText('6 services')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Academic transcript' })).toBeInTheDocument();
-  expect(screen.queryByRole('heading', { name: 'General enquiry' })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Technical support' })).toBeInTheDocument();
 });
 
 test('public courses page lists its course catalogue and supports search', () => {

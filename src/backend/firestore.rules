@@ -280,6 +280,65 @@ service cloud.firestore {
       allow delete: if staff();
     }
 
+    match /chatRooms/{roomId} {
+      allow read: if staff()
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if signedIn()
+        && roomId == request.auth.uid
+        && registeredStudent()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid', 'studentEmail', 'studentName', 'lastMessage', 'lastMessageId',
+          'lastMessageSenderUid', 'lastMessageSenderRole', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'ownerUid', 'studentEmail', 'studentName', 'lastMessage', 'lastMessageId',
+          'lastMessageSenderUid', 'lastMessageSenderRole', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.studentEmail == request.auth.token.email
+        && request.resource.data.studentName == get(/databases/$(database)/documents/studentDirectory/$(request.auth.token.email)).data.name
+        && request.resource.data.lastMessage == ''
+        && request.resource.data.lastMessageId == ''
+        && request.resource.data.lastMessageSenderUid == request.auth.uid
+        && request.resource.data.lastMessageSenderRole == 'student'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastMessage', 'lastMessageId', 'lastMessageSenderUid', 'lastMessageSenderRole', 'updatedAt'])
+        && validText(request.resource.data.lastMessage, 1, 2000)
+        && request.resource.data.lastMessageId is string
+        && existsAfter(/databases/$(database)/documents/chatRooms/$(roomId)/messages/$(request.resource.data.lastMessageId))
+        && getAfter(/databases/$(database)/documents/chatRooms/$(roomId)/messages/$(request.resource.data.lastMessageId)).data.senderUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/chatRooms/$(roomId)/messages/$(request.resource.data.lastMessageId)).data.text == request.resource.data.lastMessage
+        && request.resource.data.lastMessageSenderUid == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && ((staff() && request.resource.data.lastMessageSenderRole == 'staff')
+          || (signedIn()
+            && resource.data.ownerUid == request.auth.uid
+            && request.resource.data.lastMessageSenderRole == 'student'));
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function ownsRoom() {
+          return signedIn()
+            && get(/databases/$(database)/documents/chatRooms/$(roomId)).data.ownerUid == request.auth.uid;
+        }
+
+        allow read: if staff() || ownsRoom();
+        allow create: if signedIn()
+          && exists(/databases/$(database)/documents/chatRooms/$(roomId))
+          && request.resource.data.keys().hasOnly(['senderUid', 'senderName', 'senderRole', 'text', 'createdAt'])
+          && request.resource.data.keys().hasAll(['senderUid', 'senderName', 'senderRole', 'text', 'createdAt'])
+          && request.resource.data.senderUid == request.auth.uid
+          && validText(request.resource.data.senderName, 1, 100)
+          && validText(request.resource.data.text, 1, 2000)
+          && request.resource.data.createdAt == request.time
+          && ((staff() && request.resource.data.senderRole == 'staff')
+            || (ownsRoom() && request.resource.data.senderRole == 'student'));
+        allow update, delete: if false;
+      }
+    }
+
     match /notifications/{notificationId} {
       allow read: if signedIn() && resource.data.ownerUid == request.auth.uid;
       allow create, delete: if false;

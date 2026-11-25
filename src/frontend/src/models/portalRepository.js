@@ -7,6 +7,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -244,6 +245,81 @@ export function subscribeToNotifications(uid, callback, onError) {
     },
     onError,
   );
+}
+
+export async function ensureStudentChatRoom(user) {
+  const email = user.email?.trim().toLowerCase();
+  if (!email) throw new Error('Your account needs an email address to start a chat.');
+  const directorySnapshot = await getDoc(doc(db, 'studentDirectory', email));
+  if (!directorySnapshot.exists()) {
+    throw new Error('Your student record could not be found. Contact Registry to access live chat.');
+  }
+  const student = directorySnapshot.data();
+  const roomRef = doc(db, 'chatRooms', user.uid);
+  await runTransaction(db, async (transaction) => {
+    const roomSnapshot = await transaction.get(roomRef);
+    if (roomSnapshot.exists()) {
+      if (roomSnapshot.data().ownerUid !== user.uid) {
+        throw new Error('The chat room does not belong to your account.');
+      }
+      return;
+    }
+    transaction.set(roomRef, {
+      ownerUid: user.uid,
+      studentEmail: email,
+      studentName: String(student.name || user.displayName || 'Student').trim(),
+      lastMessage: '',
+      lastMessageId: '',
+      lastMessageSenderUid: user.uid,
+      lastMessageSenderRole: 'student',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+  return roomRef.id;
+}
+
+export function subscribeToChatRooms(callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'chatRooms'), orderBy('updatedAt', 'desc')),
+    (snapshot) => callback(snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }))
+      .filter((room) => !room.system)),
+    onError,
+  );
+}
+
+export function subscribeToChatMessages(roomId, callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'chatRooms', roomId, 'messages'), orderBy('createdAt', 'asc')),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    onError,
+  );
+}
+
+export async function sendChatMessage(roomId, user, text, isStaff = false) {
+  const message = text.trim();
+  if (!message || message.length > 2000) {
+    throw new Error('Messages must be between 1 and 2,000 characters.');
+  }
+  const roomRef = doc(db, 'chatRooms', roomId);
+  const messageRef = doc(collection(db, 'chatRooms', roomId, 'messages'));
+  const batch = writeBatch(db);
+  batch.set(messageRef, {
+    senderUid: user.uid,
+    senderName: (user.displayName?.trim() || user.email || (isStaff ? 'University team' : 'Student')).slice(0, 100),
+    senderRole: isStaff ? 'staff' : 'student',
+    text: message,
+    createdAt: serverTimestamp(),
+  });
+  batch.update(roomRef, {
+    lastMessage: message,
+    lastMessageId: messageRef.id,
+    lastMessageSenderUid: user.uid,
+    lastMessageSenderRole: isStaff ? 'staff' : 'student',
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
 }
 
 export async function markNotificationRead(notificationId) {

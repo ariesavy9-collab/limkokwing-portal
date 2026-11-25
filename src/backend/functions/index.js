@@ -127,6 +127,43 @@ exports.notifyOnRequestStatusChanged = onDocumentUpdated({
   });
 });
 
+exports.notifyOnChatMessageCreated = onDocumentCreated({
+  document: 'chatRooms/{roomId}/messages/{messageId}',
+  region: 'us-central1',
+}, async (event) => {
+  const message = event.data?.data();
+  if (!message || message.system === true) return;
+
+  const roomSnapshot = await db.collection('chatRooms').doc(event.params.roomId).get();
+  if (!roomSnapshot.exists || roomSnapshot.data().system === true) return;
+  const room = roomSnapshot.data();
+
+  if (message.senderRole === 'student') {
+    const administrators = await db.collection('adminUsers').get();
+    const adminUids = await Promise.all(administrators.docs
+      .filter((adminDocument) => adminDocument.data().system !== true)
+      .map(getAdminUid));
+    await Promise.all(adminUids.filter(Boolean).map((uid) => createNotification(event.id, {
+      ownerUid: uid,
+      type: 'chat',
+      roomId: event.params.roomId,
+      title: 'New student chat message',
+      message: `${room.studentName || 'A student'} sent a message in live chat.`,
+    })));
+    return;
+  }
+
+  if (message.senderRole === 'staff') {
+    await createNotification(event.id, {
+      ownerUid: room.ownerUid,
+      type: 'chat',
+      roomId: event.params.roomId,
+      title: 'University team replied',
+      message: 'A new reply is available in your live chat.',
+    });
+  }
+});
+
 exports.notifyOnStudentLetterCreated = onDocumentCreated({
   document: 'studentLetters/{letterId}',
   region: 'us-central1',

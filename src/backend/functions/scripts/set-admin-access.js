@@ -13,6 +13,7 @@ const initializedCollections = [
   'publicInquiries',
   'services',
   'notifications',
+  'chatRooms',
 ];
 
 initializeApp({ projectId });

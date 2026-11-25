@@ -9,11 +9,15 @@ import { getRequestFeeAmount } from '../models/fees';
 import limkokwingLetterhead from '../assets/limkokwing-letterhead.png';
 import {
   deleteInquiry,
+  ensureStudentChatRoom,
+  sendChatMessage,
   setInquiryStatus,
   saveAcademicOptions,
   subscribeToAllStudentRequests,
   subscribeToPublicInquiries,
   subscribeToAcademicOptions,
+  subscribeToChatMessages,
+  subscribeToChatRooms,
   subscribeToStudentRecords,
   subscribeToStudentRequests,
 } from '../models/portalRepository';
@@ -325,6 +329,7 @@ function FeesPage({ navigate, services = defaultServices }) {
 }
 
 function ServiceDetailsPage({ service, navigate, onRequest }) {
+  const isLiveChat = service.id === 'enquiry';
   return (
     <section className="content-wrap">
       <div className="breadcrumbs"><button className="text-button" onClick={() => navigate('/services')}>Services</button><span>/</span><span>{service.name}</span></div>
@@ -341,13 +346,15 @@ function ServiceDetailsPage({ service, navigate, onRequest }) {
         <div className="detail-instructions">
           <h2>Before you start</h2>
           <ul>
-            {service.studentOnly
+            {isLiveChat
+              ? <><li>Start a live conversation with the university team.</li><li>Replies will appear in this chat and in your notifications.</li><li>You can return to the conversation at any time from Live chat in your student navigation.</li></>
+              : service.studentOnly
               ? <><li>Have your registered student ID ready.</li><li>Provide a clear reason so the right team can assist.</li><li>Sign in with your student account to submit and track your request.</li></>
               : <><li>Share a current email address so the team can reply.</li><li>For technical support, include the device or service affected.</li><li>You do not need a student account to send a general enquiry.</li></>}
           </ul>
         </div>
         <div className="detail-actions">
-          <button className="button button-primary" onClick={onRequest}>{service.studentOnly ? 'Start student request' : 'Make an enquiry'}</button>
+          <button className="button button-primary" onClick={onRequest}>{isLiveChat ? 'Start live chat' : service.studentOnly ? 'Start student request' : 'Make an enquiry'}</button>
           <button className="button button-outline" onClick={() => navigate('/services')}>Back to services</button>
         </div>
       </article>
@@ -735,7 +742,211 @@ function StudentDashboard({ user, profile, profileError, onCancelRequest, onUpda
   );
 }
 
-function NotificationsPage({ notifications, error, onMarkRead, onMarkAllRead }) {
+export function ChatPage({ user }) {
+  const [roomId, setRoomId] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    ensureStudentChatRoom(user).then((id) => {
+      if (active) {
+        setRoomId(id);
+        setLoading(false);
+      }
+    }).catch((failure) => {
+      if (active) {
+        setError(failure.message || 'The live chat could not be opened.');
+        setLoading(false);
+      }
+    });
+    return () => { active = false; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!roomId) return undefined;
+    return subscribeToChatMessages(roomId, setMessages, (failure) => {
+      setError(failure.message || 'Chat messages could not be loaded.');
+    });
+  }, [roomId]);
+
+  const handleSend = async (event) => {
+    event.preventDefault();
+    const text = message.trim();
+    if (!text || !roomId || sending) return;
+    setSending(true);
+    setError('');
+    try {
+      await sendChatMessage(roomId, user, text);
+      setMessage('');
+    } catch (failure) {
+      setError(failure.message || 'Your message could not be sent.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="content-wrap dashboard-wrap chat-page">
+      <PageHeading
+        eyebrow="STUDENT SUPPORT"
+        title="Live chat with the university"
+        description="Send a message to the university team. Replies appear here in real time, and you’ll receive a notification when staff respond."
+      />
+      {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
+      {loading ? <p role="status">Opening your secure chat…</p> : (
+        <div className="chat-panel">
+          <div className="chat-messages" aria-live="polite" aria-label="Chat messages">
+            {messages.length ? messages.map((item) => (
+              <article
+                className={`chat-message${item.senderRole === 'student' ? ' own' : ''}`}
+                key={item.id}
+              >
+                <div className="chat-message-meta">
+                  <strong>{item.senderRole === 'staff' ? 'University team' : 'You'}</strong>
+                  {item.createdAt?.toDate && <time>{item.createdAt.toDate().toLocaleString()}</time>}
+                </div>
+                <p>{item.text}</p>
+              </article>
+            )) : <p className="chat-empty">Your conversation starts here. Send a message to contact the university team.</p>}
+          </div>
+          <form className="chat-composer" onSubmit={handleSend}>
+            <label htmlFor="student-chat-message">Your message</label>
+            <textarea
+              id="student-chat-message"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              maxLength={2000}
+              rows={3}
+              required
+              placeholder="Type your question…"
+            />
+            <div className="chat-composer-footer">
+              <span>{message.length}/2000</span>
+              <button className="button button-primary" type="submit" disabled={!message.trim() || sending}>
+                {sending ? 'Sending…' : 'Send message'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StaffChatInbox({ staffUser }) {
+  const [rooms, setRooms] = useState([]);
+  const [roomId, setRoomId] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => subscribeToChatRooms((items) => {
+    setRooms(items);
+    setRoomId((selected) => selected || items[0]?.id || '');
+    setLoading(false);
+  }, (failure) => {
+    setError(failure.message || 'Chat conversations could not be loaded.');
+    setLoading(false);
+  }), []);
+
+  useEffect(() => {
+    if (!roomId) {
+      setMessages([]);
+      return undefined;
+    }
+    return subscribeToChatMessages(roomId, setMessages, (failure) => {
+      setError(failure.message || 'Chat messages could not be loaded.');
+    });
+  }, [roomId]);
+
+  const handleSend = async (event) => {
+    event.preventDefault();
+    const text = message.trim();
+    if (!text || !roomId || sending) return;
+    setSending(true);
+    setError('');
+    try {
+      await sendChatMessage(roomId, staffUser, text, true);
+      setMessage('');
+    } catch (failure) {
+      setError(failure.message || 'The reply could not be sent.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const selectedRoom = rooms.find((room) => room.id === roomId);
+  return (
+    <section className="staff-chat-inbox" aria-label="Student live chat inbox">
+      <aside className="staff-chat-list">
+        <h2>Student conversations</h2>
+        {loading && <p role="status">Loading conversations…</p>}
+        {!loading && rooms.length === 0 && <p>No student conversations yet.</p>}
+        {rooms.map((room) => (
+          <button
+            className={`staff-chat-room${room.id === roomId ? ' active' : ''}`}
+            type="button"
+            key={room.id}
+            onClick={() => setRoomId(room.id)}
+          >
+            <strong>{room.studentName || room.studentEmail}</strong>
+            <span>{room.studentEmail}</span>
+            <small>{room.lastMessage || 'New conversation'}</small>
+          </button>
+        ))}
+      </aside>
+      <div className="chat-panel staff-chat-panel">
+        {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
+        {selectedRoom ? <>
+          <header className="staff-chat-heading">
+            <h2>{selectedRoom.studentName || 'Student'}</h2>
+            <span>{selectedRoom.studentEmail}</span>
+          </header>
+          <div className="chat-messages" aria-live="polite" aria-label="Selected conversation messages">
+            {messages.map((item) => (
+              <article
+                className={`chat-message${item.senderRole === 'staff' ? ' own' : ''}`}
+                key={item.id}
+              >
+                <div className="chat-message-meta">
+                  <strong>{item.senderRole === 'staff' ? 'University team' : item.senderName || 'Student'}</strong>
+                  {item.createdAt?.toDate && <time>{item.createdAt.toDate().toLocaleString()}</time>}
+                </div>
+                <p>{item.text}</p>
+              </article>
+            ))}
+          </div>
+          <form className="chat-composer" onSubmit={handleSend}>
+            <label htmlFor="staff-chat-message">Reply to student</label>
+            <textarea
+              id="staff-chat-message"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              maxLength={2000}
+              rows={3}
+              required
+              placeholder="Type your reply…"
+            />
+            <div className="chat-composer-footer">
+              <span>{message.length}/2000</span>
+              <button className="button button-primary" type="submit" disabled={!message.trim() || sending}>
+                {sending ? 'Sending…' : 'Send reply'}
+              </button>
+            </div>
+          </form>
+        </> : !loading && <p className="chat-empty">Choose a student conversation to view and reply.</p>}
+      </div>
+    </section>
+  );
+}
+
+function NotificationsPage({ notifications, error, onMarkRead, onMarkAllRead, navigate, isAdmin }) {
   const confirm = useConfirmation();
   const [actionError, setActionError] = useState('');
   const unreadCount = notifications.filter((notification) => !notification.read).length;
@@ -802,6 +1013,15 @@ function NotificationsPage({ notifications, error, onMarkRead, onMarkAllRead }) 
                     {notification.createdAt.toDate().toLocaleString()}
                   </time>
                 )}
+                {notification.type === 'chat' && (
+                  <button
+                    className="text-button"
+                    type="button"
+                    onClick={() => navigate(isAdmin ? '/staff?view=chat' : '/chat')}
+                  >
+                    Open chat
+                  </button>
+                )}
               </div>
               {!notification.read && (
                 <button className="text-button" type="button" onClick={() => markRead(notification.id)}>
@@ -836,6 +1056,7 @@ function AdminDashboard({
   onSubscribeToAcademicOptions = subscribeToAcademicOptions,
   onSaveAcademicOptions = saveAcademicOptions,
   adminEmail,
+  staffUser,
   initialSection = 'requests',
   navigate,
 }) {
@@ -1357,6 +1578,7 @@ function AdminDashboard({
   const sectionDetails = {
     requests: { title: 'Request queue', description: 'Review incoming student requests and update their progress.' },
     inquiries: { title: 'Public enquiries', description: 'Respond to messages from students, applicants, and visitors.' },
+    chat: { title: 'Live chat inbox', description: 'Read student messages and reply directly in real time.' },
     students: { title: 'Student directory', description: 'Find, update, and manage approved student records.' },
     finance: { title: 'Finance & fees', description: 'Track outstanding student fees, collected amounts, and payment status.' },
     services: { title: 'Service setup', description: 'Control service visibility and configure the public directory.' },
@@ -1375,6 +1597,7 @@ function AdminDashboard({
       </div>}
       {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
       {section === 'finance' && <AdminFinancePage requests={requests} />}
+      {section === 'chat' && <StaffChatInbox staffUser={staffUser} />}
       {section === 'requests' && <div className="staff-records">
         {filteredRequests.map((request) => (
           <article className="staff-record" key={request.id}>
