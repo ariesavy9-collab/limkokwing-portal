@@ -2420,7 +2420,8 @@ body,
   background: #fff;
   border-bottom-color: #d6dfeb;
 }
-:root[data-theme='light'] .portal-brand-logo { filter: brightness(0); }
+:root[data-theme='light'] .portal-brand-logo-dark { display: none; }
+:root[data-theme='light'] .portal-brand-logo-light { display: block; }
 
 :root[data-theme='light'] .portal-nav-label { color: #64748b; }
 :root[data-theme='light'] .portal-nav-link,

@@ -50,6 +50,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   max-width: 190px;
   height: auto;
 }
+.portal-brand-logo-light { display: none; }
 .portal-nav-group { padding: 22px 13px 12px; }
 .portal-nav-label {
   margin: 0 10px 9px;

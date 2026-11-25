@@ -121,7 +121,7 @@ test('account menu shows the Google profile photo and signs out from its menu', 
 
 test('account menu switches to light mode and remembers the preference', () => {
   window.localStorage.removeItem('limkokwing-portal-theme');
-  render(
+  const { container } = render(
     <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <SiteLayout
         currentPath="/student"
@@ -142,6 +142,8 @@ test('account menu switches to light mode and remembers the preference', () => {
 
   expect(document.documentElement).toHaveAttribute('data-theme', 'light');
   expect(window.localStorage.getItem('limkokwing-portal-theme')).toBe('light');
+  expect(container.querySelector('.portal-brand-logo-light').getAttribute('src')).toMatch(/logo-black\.png/);
+  expect(container.querySelector('.portal-brand-logo-dark').getAttribute('src')).not.toMatch(/logo-black\.png/);
 
   window.localStorage.removeItem('limkokwing-portal-theme');
   document.documentElement.removeAttribute('data-theme');

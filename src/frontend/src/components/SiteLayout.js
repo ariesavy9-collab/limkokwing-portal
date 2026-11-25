@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import universityLogo from '../logo.png';
+import universityLogoBlack from '../logo-black.png';
 import Icon from './Icon';
 import { FloatingChatWidget } from '../pages/PortalPages';
 import { subscribeToStudentRecord } from '../models/portalRepository';
@@ -178,7 +179,8 @@ function SiteLayout({
     <div className="portal-shell">
       <aside className={`portal-sidebar${menuOpen ? ' portal-sidebar-open' : ''}`}>
         <Link className="portal-brand" to="/" aria-label="Limkokwing University home" onClick={() => setMenuOpen(false)}>
-          <img className="portal-brand-logo" src={universityLogo} alt="Limkokwing University" />
+          <img className="portal-brand-logo portal-brand-logo-dark" src={universityLogo} alt="Limkokwing University" />
+          <img className="portal-brand-logo portal-brand-logo-light" src={universityLogoBlack} alt="" aria-hidden="true" />
         </Link>
         <div className="portal-nav-group">
           {navigationSections.map((section) => (
