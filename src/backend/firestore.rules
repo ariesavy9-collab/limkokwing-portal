@@ -281,7 +281,10 @@ service cloud.firestore {
     }
 
     match /chatRooms/{roomId} {
-      allow read: if staff()
+      allow get: if staff()
+        || (signedIn() && roomId == request.auth.uid && registeredStudent())
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow list: if staff()
         || (signedIn() && resource.data.ownerUid == request.auth.uid);
       allow create: if signedIn()
         && roomId == request.auth.uid
