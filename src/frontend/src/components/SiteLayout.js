@@ -27,14 +27,12 @@ function SiteLayout({
   onDismissNotice,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [failedPhotoUrl, setFailedPhotoUrl] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
   const [studentRecord, setStudentRecord] = useState(null);
   const [studentRecordLoading, setStudentRecordLoading] = useState(false);
   const [studentRecordError, setStudentRecordError] = useState('');
-  const helpWidget = useRef(null);
   const accountMenu = useRef(null);
   const accountMenuButton = useRef(null);
   const googlePhotoUrl = user?.photoURL || user?.providerData?.find((provider) => provider.providerId === 'google.com')?.photoURL;
@@ -150,22 +148,6 @@ function SiteLayout({
   }, [pageTitle]);
 
   useEffect(() => {
-    if (!helpOpen) return undefined;
-    const handlePointerDown = (event) => {
-      if (!helpWidget.current?.contains(event.target)) setHelpOpen(false);
-    };
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') setHelpOpen(false);
-    };
-    document.addEventListener('pointerdown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [helpOpen]);
-
-  useEffect(() => {
     if (!accountMenuOpen) return undefined;
     const handlePointerDown = (event) => {
       if (!accountMenu.current?.contains(event.target)) setAccountMenuOpen(false);
@@ -203,7 +185,7 @@ function SiteLayout({
                       to={link.path}
                       className={`portal-nav-link${active ? ' active' : ''}`}
                       aria-current={active ? 'page' : undefined}
-                      onClick={() => { setMenuOpen(false); setHelpOpen(false); }}
+                      onClick={() => setMenuOpen(false)}
                     >
                       <Icon name={link.icon} size={17} />
                       <span>{link.label}</span>
@@ -380,32 +362,6 @@ function SiteLayout({
           </section>
         </div>
       )}
-      {!isAdmin && <div className="portal-help-widget" ref={helpWidget}>
-        {helpOpen && (
-          <section className="portal-help-menu" id="portal-help-menu" aria-labelledby="portal-help-title">
-            <h2 id="portal-help-title">How can we help?</h2>
-            <p>Contact Student Affairs for help with your student account or service request.</p>
-            <a href="mailto:registry@limkokwing.ac.ls" onClick={() => setHelpOpen(false)}>
-              <Icon name="mail" size={18} />
-              <span><strong>Email registry</strong><small>registry@limkokwing.ac.ls</small></span>
-            </a>
-            <a href="tel:+26622313000" onClick={() => setHelpOpen(false)}>
-              <Icon name="phone" size={18} />
-              <span><strong>Call the campus</strong><small>+266 2231 3000</small></span>
-            </a>
-          </section>
-        )}
-        <button
-          className="portal-help-launcher"
-          type="button"
-          aria-expanded={helpOpen}
-          aria-controls="portal-help-menu"
-          onClick={() => setHelpOpen((isOpen) => !isOpen)}
-        >
-          <Icon name={helpOpen ? 'close' : 'support'} size={20} />
-          <span>{helpOpen ? 'Close' : 'Help'}</span>
-        </button>
-      </div>}
       {menuOpen && <button className="portal-sidebar-scrim" aria-label="Close navigation" onClick={() => setMenuOpen(false)} />}
     </div>
   );
