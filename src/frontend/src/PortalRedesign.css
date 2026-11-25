@@ -78,9 +78,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   text-decoration: none;
   transition: background .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
-.portal-nav-link:hover { border-radius: 0; background: #2147a8; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); color: #fff; }
+.portal-nav-link:hover { border-radius: 0; background: #000; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); color: #fff; }
 .portal-nav-link.active { border-radius: 0; color: #fff; background: #183783; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); font-weight: 750; }
-.portal-nav-link.active:hover { background: #2147a8; }
+.portal-nav-link.active:hover { background: #000; }
 .portal-sign-in-link { gap: 10px; }
 .portal-sign-in-link svg { flex: 0 0 auto; }
 .portal-sign-in-link,

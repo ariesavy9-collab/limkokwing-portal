@@ -269,8 +269,9 @@ body { color: var(--ink); background: var(--paper); }
   box-shadow: none;
   border-radius: 4px;
 }
-.portal-nav-link:hover { background: #12355f; color: #fff; }
-.portal-nav-link.active, .portal-nav-link.active:hover { color: #fff; background: #0755d9; box-shadow: none; }
+.portal-nav-link:hover { background: #000; color: #fff; }
+.portal-nav-link.active { color: #fff; background: #0755d9; box-shadow: none; }
+.portal-nav-link.active:hover { background: #000; }
 .portal-help-label { margin-top: 24px; }
 .portal-assistance { background: #102a4b; border-radius: 4px; }
 .portal-assistance strong { color: #fff; }
@@ -2430,9 +2431,12 @@ body,
   color: #34445a;
   background: transparent;
 }
-:root[data-theme='light'] .portal-nav-link:hover { color: #173c78; background: #e0eaf7; }
-:root[data-theme='light'] .portal-nav-link.active,
+:root[data-theme='light'] .portal-nav-link:hover,
 :root[data-theme='light'] .portal-nav-link.active:hover {
+  color: #fff;
+  background: #000;
+}
+:root[data-theme='light'] .portal-nav-link.active {
   color: #fff;
   background: #0755d9;
 }
