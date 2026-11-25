@@ -305,9 +305,13 @@ export async function sendChatMessage(roomId, user, text, isStaff = false) {
   const roomRef = doc(db, 'chatRooms', roomId);
   const messageRef = doc(collection(db, 'chatRooms', roomId, 'messages'));
   const batch = writeBatch(db);
+  const senderPhotoURL = typeof user.photoURL === 'string' && user.photoURL.startsWith('https://')
+    ? user.photoURL.slice(0, 2048)
+    : '';
   batch.set(messageRef, {
     senderUid: user.uid,
     senderName: (user.displayName?.trim() || user.email || (isStaff ? 'University team' : 'Student')).slice(0, 100),
+    ...(senderPhotoURL ? { senderPhotoURL } : {}),
     senderRole: isStaff ? 'staff' : 'student',
     text: message,
     createdAt: serverTimestamp(),

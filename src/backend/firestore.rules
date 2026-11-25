@@ -330,9 +330,13 @@ service cloud.firestore {
         allow read: if staff() || ownsRoom();
         allow create: if signedIn()
           && exists(/databases/$(database)/documents/chatRooms/$(roomId))
-          && request.resource.data.keys().hasOnly(['senderUid', 'senderName', 'senderRole', 'text', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['senderUid', 'senderName', 'senderPhotoURL', 'senderRole', 'text', 'createdAt'])
           && request.resource.data.keys().hasAll(['senderUid', 'senderName', 'senderRole', 'text', 'createdAt'])
           && request.resource.data.senderUid == request.auth.uid
+          && (!request.resource.data.keys().hasAny(['senderPhotoURL'])
+            || (request.resource.data.senderPhotoURL is string
+              && request.resource.data.senderPhotoURL.size() <= 2048
+              && request.resource.data.senderPhotoURL.matches('^https://.*$')))
           && validText(request.resource.data.senderName, 1, 100)
           && validText(request.resource.data.text, 1, 2000)
           && request.resource.data.createdAt == request.time

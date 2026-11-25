@@ -119,6 +119,34 @@ test('account menu shows the Google profile photo and signs out from its menu', 
   expect(onSignOut).toHaveBeenCalledTimes(1);
 });
 
+test('account menu switches to light mode and remembers the preference', () => {
+  window.localStorage.removeItem('limkokwing-portal-theme');
+  render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <SiteLayout
+        currentPath="/student"
+        user={{ displayName: 'Google Student', email: 'student@example.com' }}
+        isAdmin={false}
+        loading={false}
+        isOnline
+        onSignOut={jest.fn()}
+        onOpenNotifications={jest.fn()}
+      >
+        <div>Portal content</div>
+      </SiteLayout>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: 'Account menu for Google Student' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Switch to light mode' }));
+
+  expect(document.documentElement).toHaveAttribute('data-theme', 'light');
+  expect(window.localStorage.getItem('limkokwing-portal-theme')).toBe('light');
+
+  window.localStorage.removeItem('limkokwing-portal-theme');
+  document.documentElement.removeAttribute('data-theme');
+});
+
 test('student account menu links to letters and opens a Google-photo profile before sign-out', () => {
   const { subscribeToStudentRecord } = require('./models/portalRepository');
   subscribeToStudentRecord.mockImplementationOnce((email, callback) => {
@@ -160,7 +188,11 @@ test('student account menu links to letters and opens a Google-photo profile bef
   expect(within(studentNavigation).getByRole('link', { name: 'Letters' })).toHaveAttribute('href', '/letters');
   fireEvent.click(screen.getByRole('button', { name: 'Account menu for Google Student' }));
   const menu = screen.getByRole('menu');
-  expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['View profile', 'Sign out']);
+  expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+    'Light mode',
+    'View profile',
+    'Sign out',
+  ]);
   expect(within(menu).getByRole('menuitem', { name: 'View profile' })).toHaveClass('portal-account-view-profile');
   expect(within(menu).getByRole('menuitem', { name: 'Sign out' })).toHaveClass('portal-account-signout');
   fireEvent.click(within(menu).getByRole('menuitem', { name: 'View profile' }));
@@ -619,10 +651,29 @@ test('student live chat sends messages through the shared conversation', async (
 
   const messageField = await screen.findByRole('textbox', { name: 'Your message' });
   fireEvent.change(messageField, { target: { value: 'I need help with course registration.' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
   await waitFor(() => expect(require('./models/portalRepository').sendChatMessage)
     .toHaveBeenCalledWith('student-chat-room', user, 'I need help with course registration.'));
+});
+
+test('student chat identifies staff replies with the signed-in Google account', async () => {
+  const user = { uid: 'student-uid', email: 'student@example.com', displayName: 'Student Example' };
+  require('./models/portalRepository').ensureStudentChatRoom.mockResolvedValue('student-chat-room');
+  require('./models/portalRepository').subscribeToChatMessages.mockImplementationOnce((roomId, callback) => {
+    callback([{
+      id: 'staff-reply',
+      senderRole: 'staff',
+      senderName: 'Alex Admin',
+      senderPhotoURL: 'https://example.com/admin.jpg',
+      text: 'Hello, how can we help?',
+    }]);
+    return () => {};
+  });
+  render(<ChatPage user={user} floating />);
+
+  expect(await screen.findByText('Alex Admin')).toBeInTheDocument();
+  expect(document.querySelector('.chat-message-sender img')).toHaveAttribute('src', 'https://example.com/admin.jpg');
 });
 
 test('student live chat opens as a floating window and can be minimized', async () => {

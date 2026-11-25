@@ -28,6 +28,9 @@ function SiteLayout({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(() => (
+    window.localStorage.getItem('limkokwing-portal-theme') === 'light' ? 'light' : 'dark'
+  ));
   const [failedPhotoUrl, setFailedPhotoUrl] = useState('');
   const [profileOpen, setProfileOpen] = useState(false);
   const [studentRecord, setStudentRecord] = useState(null);
@@ -148,6 +151,11 @@ function SiteLayout({
   }, [pageTitle]);
 
   useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem('limkokwing-portal-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
     if (!accountMenuOpen) return undefined;
     const handlePointerDown = (event) => {
       if (!accountMenu.current?.contains(event.target)) setAccountMenuOpen(false);
@@ -254,6 +262,15 @@ function SiteLayout({
                   {accountMenuOpen && (
                     <div className="portal-account-dropdown" id="portal-account-dropdown" role="menu">
                       <span className="portal-account-email">{user.email || displayName}</span>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                        onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                      >
+                        <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />
+                        {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+                      </button>
                       <button
                         className="portal-account-view-profile"
                         type="button"

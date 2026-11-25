@@ -800,7 +800,12 @@ export function ChatPage({ user, floating = false }) {
                 key={item.id}
               >
                 <div className="chat-message-meta">
-                  <strong>{item.senderRole === 'staff' ? 'University team' : 'You'}</strong>
+                  <span className="chat-message-sender">
+                    {item.senderRole === 'staff' && item.senderPhotoURL && (
+                      <img src={item.senderPhotoURL} alt="" referrerPolicy="no-referrer" />
+                    )}
+                    <strong>{item.senderRole === 'student' ? 'You' : item.senderName || 'University support'}</strong>
+                  </span>
                   {item.createdAt?.toDate && <time>{item.createdAt.toDate().toLocaleString()}</time>}
                 </div>
                 <p>{item.text}</p>
@@ -816,12 +821,19 @@ export function ChatPage({ user, floating = false }) {
               maxLength={2000}
               rows={3}
               required
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
               placeholder="Type your question…"
             />
             <div className="chat-composer-footer">
               <span>{message.length}/2000</span>
               <button className="button button-primary" type="submit" disabled={!message.trim() || sending}>
-                {sending ? 'Sending…' : 'Send message'}
+                <Icon name="send" size={16} />
+                {sending ? 'Sending…' : 'Send'}
               </button>
             </div>
           </form>
@@ -973,7 +985,12 @@ function StaffChatInbox({ staffUser }) {
                 key={item.id}
               >
                 <div className="chat-message-meta">
-                  <strong>{item.senderRole === 'staff' ? 'University team' : item.senderName || 'Student'}</strong>
+                  <span className="chat-message-sender">
+                    {item.senderRole === 'staff' && item.senderPhotoURL && (
+                      <img src={item.senderPhotoURL} alt="" referrerPolicy="no-referrer" />
+                    )}
+                    <strong>{item.senderName || (item.senderRole === 'staff' ? 'University support' : 'Student')}</strong>
+                  </span>
                   {item.createdAt?.toDate && <time>{item.createdAt.toDate().toLocaleString()}</time>}
                 </div>
                 <p>{item.text}</p>
@@ -989,11 +1006,18 @@ function StaffChatInbox({ staffUser }) {
               maxLength={2000}
               rows={3}
               required
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
               placeholder="Type your reply…"
             />
             <div className="chat-composer-footer">
               <span>{message.length}/2000</span>
               <button className="button button-primary" type="submit" disabled={!message.trim() || sending}>
+                <Icon name="send" size={16} />
                 {sending ? 'Sending…' : 'Send reply'}
               </button>
             </div>
