@@ -2485,6 +2485,198 @@ body,
 }
 :root[data-theme='light'] .portal-account-dropdown button { color: var(--ink); }
 :root[data-theme='light'] .portal-account-dropdown button:hover { background: #edf2f8; }
+:root[data-theme='light'] .portal-account-dropdown button[role='menuitem'].portal-account-view-profile {
+  color: #173c78;
+  background: #eaf1ff;
+  border-color: #c4d6f5;
+}
+:root[data-theme='light'] .portal-account-dropdown button[role='menuitem'].portal-account-view-profile:hover {
+  color: #102b59;
+  background: #dce8fb;
+  border-color: #a9c3ed;
+}
+:root[data-theme='light'] .portal-account-dropdown button[role='menuitem'].portal-account-signout {
+  color: #9f242d;
+  background: #fff1f0;
+  border-color: #f0c7c4;
+}
+:root[data-theme='light'] .portal-account-dropdown button[role='menuitem'].portal-account-signout:hover {
+  color: #7d1b23;
+  background: #ffe4e1;
+  border-color: #e8aaa5;
+}
+:root[data-theme='light'] .portal-account-dropdown button[role='menuitem']:first-of-type {
+  color: #34445a;
+  background: transparent;
+  border-color: transparent;
+}
+:root[data-theme='light'] .portal-account-dropdown button[role='menuitem']:first-of-type:hover {
+  background: #edf2f8;
+}
+:root[data-theme='light'] .form-field input,
+:root[data-theme='light'] .form-field textarea,
+:root[data-theme='light'] .form-field select,
+:root[data-theme='light'] .auth-form input,
+:root[data-theme='light'] .service-filter,
+:root[data-theme='light'] .staff-search,
+:root[data-theme='light'] .select-control,
+:root[data-theme='light'] .request-edit-form textarea {
+  color: var(--ink);
+  background: #fff;
+  border-color: #cbd6e2;
+}
+:root[data-theme='light'] .form-field label,
+:root[data-theme='light'] .auth-form label { color: var(--ink); }
+:root[data-theme='light'] .form-field input[aria-invalid='true'],
+:root[data-theme='light'] .form-field textarea[aria-invalid='true'],
+:root[data-theme='light'] .auth-form input[aria-invalid='true'] {
+  color: #7f1d1d;
+  background: #fffafa;
+  border-color: #d92d20;
+}
+:root[data-theme='light'] .button-primary,
+:root[data-theme='light'] .service-link,
+:root[data-theme='light'] .view-all-link {
+  color: #fff;
+  background: #0755d9;
+  border-color: #0755d9;
+}
+:root[data-theme='light'] .button-primary:hover:not(:disabled),
+:root[data-theme='light'] .service-link:hover:not(:disabled),
+:root[data-theme='light'] .view-all-link:hover:not(:disabled) {
+  color: #fff;
+  background: #0647b5;
+  border-color: #0647b5;
+}
+:root[data-theme='light'] .button-outline,
+:root[data-theme='light'] .text-button,
+:root[data-theme='light'] .request-pdf-link {
+  color: #173c78;
+  background: #fff;
+  border-color: #c8d6e8;
+}
+:root[data-theme='light'] .button-outline:hover:not(:disabled),
+:root[data-theme='light'] .text-button:hover:not(:disabled),
+:root[data-theme='light'] .request-pdf-link:hover {
+  color: #102b59;
+  background: #eaf1ff;
+  border-color: #a9c3ed;
+}
+:root[data-theme='light'] .text-button.delete-link,
+:root[data-theme='light'] .button-outline.delete-link {
+  color: #a32129;
+  background: #fff1f0;
+  border-color: #f0c7c4;
+}
+:root[data-theme='light'] .text-button.delete-link:hover:not(:disabled),
+:root[data-theme='light'] .button-outline.delete-link:hover:not(:disabled) {
+  color: #7d1b23;
+  background: #ffe4e1;
+  border-color: #e8aaa5;
+}
+:root[data-theme='light'] .staff-tabs button {
+  color: #34445a;
+  background: #fff;
+  border-color: var(--line);
+}
+:root[data-theme='light'] .staff-tabs button.active,
+:root[data-theme='light'] .staff-tabs button.active:hover {
+  color: #fff;
+  background: #0755d9;
+  border-color: #0755d9;
+}
+:root[data-theme='light'] .request-aside {
+  color: #173c78;
+  background: #eaf1ff;
+  border-color: #c4d6f5;
+}
+:root[data-theme='light'] .request-aside h2,
+:root[data-theme='light'] .request-aside .aside-fact strong,
+:root[data-theme='light'] .request-aside > p,
+:root[data-theme='light'] .request-aside .aside-fact > span,
+:root[data-theme='light'] .request-aside .text-button {
+  color: #173c78;
+}
+:root[data-theme='light'] .request-aside-icon { color: #0755d9; background: #dce8fb; }
+:root[data-theme='light'] .request-aside .aside-rule,
+:root[data-theme='light'] .request-aside .aside-login { border-color: #c4d6f5; }
+:root[data-theme='light'] .request-aside .aside-rule { background: #c4d6f5; }
+:root[data-theme='light'] .request-fee,
+:root[data-theme='light'] .dashboard-stats .debt-stat > strong,
+:root[data-theme='light'] .outstanding-fees .dashboard-section-heading > strong,
+:root[data-theme='light'] .fee-row strong,
+:root[data-theme='light'] .finance-stat > strong,
+:root[data-theme='light'] .finance-panel-heading > strong,
+:root[data-theme='light'] .finance-chart-legend strong,
+:root[data-theme='light'] .finance-student-table .finance-amount-owed,
+:root[data-theme='light'] .fees-service-list li strong,
+:root[data-theme='light'] .detail-facts > div:nth-child(2) > strong {
+  color: var(--ink);
+}
+:root[data-theme='light'] .dashboard-stats .debt-stat {
+  color: #714d00;
+  background: #fff8e6;
+  border-color: #f0d99c;
+}
+:root[data-theme='light'] .fee-unpaid { color: #8a5a00; }
+:root[data-theme='light'] .status-pending,
+:root[data-theme='light'] .status-in-progress {
+  color: #854d0e;
+  background: #fff3d2;
+}
+:root[data-theme='light'] .status-accepted { color: #174ea6; background: #e8f0ff; }
+:root[data-theme='light'] .status-completed,
+:root[data-theme='light'] .status-resolved { color: #166534; background: #dcfce7; }
+:root[data-theme='light'] .status-rejected,
+:root[data-theme='light'] .status-cancelled { color: #991b1b; background: #fee2e2; }
+:root[data-theme='light'] .form-alert-error,
+:root[data-theme='light'] .notice-error,
+:root[data-theme='light'] .validation-errors {
+  color: #b42318;
+  background: #fef3f2;
+  border-color: #fecdca;
+}
+:root[data-theme='light'] .form-alert-success,
+:root[data-theme='light'] .notice-success {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+:root[data-theme='light'] .field-validation-error { color: #b42318; }
+:root[data-theme='light'] .profile-lock-note {
+  color: var(--muted);
+  background: #f2f6fa;
+  border-color: var(--line);
+}
+:root[data-theme='light'] .student-faculty-heading > span,
+:root[data-theme='light'] .student-form-step-number {
+  color: #34445a;
+  background: #edf2f8;
+  border-color: #d7e0ea;
+}
+:root[data-theme='light'] .student-form-progress,
+:root[data-theme='light'] .academic-options-panel .request-form {
+  color: var(--ink);
+  background: #f7f9fc;
+  border-color: var(--line);
+}
+:root[data-theme='light'] .student-form-progress-track,
+:root[data-theme='light'] .finance-count-track,
+:root[data-theme='light'] .finance-amount-chart {
+  background: #e3eaf2;
+}
+:root[data-theme='light'] .confirmation-icon.destructive {
+  color: #b42318;
+  background: #fef3f2;
+  border-color: #fecdca;
+}
+:root[data-theme='light'] .modal-backdrop,
+:root[data-theme='light'] .confirmation-backdrop { background: rgba(25, 42, 63, .42); }
+:root[data-theme='light'] .google-button {
+  color: #25364b;
+  background: #fff;
+  border-color: #d7e0ea;
+}
 :root[data-theme='light'] .chat-panel {
   color: var(--ink);
   background: #fff;
