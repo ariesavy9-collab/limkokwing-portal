@@ -8,6 +8,7 @@ import {
   ChatPage,
   CoursesPage,
   ContactPage,
+  FloatingChatWidget,
   FeesPage,
   NotificationsPage,
   RequestPage,
@@ -622,6 +623,21 @@ test('student live chat sends messages through the shared conversation', async (
 
   await waitFor(() => expect(require('./models/portalRepository').sendChatMessage)
     .toHaveBeenCalledWith('student-chat-room', user, 'I need help with course registration.'));
+});
+
+test('student live chat opens as a floating window and can be minimized', async () => {
+  const user = { uid: 'student-uid', email: 'student@example.com', displayName: 'Student Example' };
+  require('./models/portalRepository').ensureStudentChatRoom.mockResolvedValue('student-chat-room');
+  render(<FloatingChatWidget user={user} />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Open live chat' }));
+
+  expect(await screen.findByRole('region', { name: 'Live chat with the university' })).toBeInTheDocument();
+  expect(await screen.findByRole('textbox', { name: 'Your message' })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Minimize live chat' }));
+
+  expect(screen.getByRole('button', { name: 'Open live chat' })).toBeInTheDocument();
 });
 
 test('student service directory includes student technical support', () => {

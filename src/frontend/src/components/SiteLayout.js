@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import universityLogo from '../logo.png';
 import Icon from './Icon';
+import { FloatingChatWidget } from '../pages/PortalPages';
 import { subscribeToStudentRecord } from '../models/portalRepository';
 
 function formatProfileDate(value) {
@@ -330,6 +331,9 @@ function SiteLayout({
           })}
         </nav>
       </div>
+      {!isAdmin && user && (
+        <FloatingChatWidget user={user} initialOpen={currentPath === '/chat'} />
+      )}
       {profileOpen && (
         <div className="profile-overlay">
           <section

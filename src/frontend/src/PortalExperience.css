@@ -81,6 +81,132 @@
 }
 .chat-composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .chat-composer-footer span { color: var(--muted); font-size: 12px; }
+.student-chat-widget {
+  position: fixed;
+  z-index: 46;
+  right: 24px;
+  bottom: 88px;
+  width: min(370px, calc(100vw - 32px));
+}
+.floating-chat-launcher {
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  float: right;
+  padding: 0 19px;
+  border: 0;
+  border-radius: 28px;
+  background: #087f70;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .34);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+.floating-chat-launcher:hover { background: #09927f; }
+.floating-chat-window {
+  display: flex;
+  height: min(560px, calc(100dvh - 120px));
+  min-height: 340px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #28443e;
+  border-radius: 14px;
+  background: #101a20;
+  box-shadow: 0 18px 56px rgba(0, 0, 0, .42);
+}
+.floating-chat-header {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  background: #075e54;
+  color: #fff;
+}
+.floating-chat-avatar {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .16);
+}
+.floating-chat-title { display: grid; min-width: 0; gap: 3px; }
+.floating-chat-title strong { font-size: 14px; }
+.floating-chat-title small { color: #d3eee9; font-size: 11px; }
+.floating-chat-minimize {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  margin-left: auto;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font-size: 26px;
+  line-height: 1;
+}
+.floating-chat-minimize:hover { background: rgba(255, 255, 255, .14); }
+.floating-chat-body { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.floating-chat-body > .form-alert { margin: 8px; padding: 9px 11px; font-size: 12px; }
+.chat-panel-floating {
+  min-height: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  background: #0b141a;
+}
+.chat-panel-floating .chat-messages {
+  min-height: 0;
+  max-height: none;
+  padding: 16px 13px;
+  background-color: #0b141a;
+  background-image: radial-gradient(rgba(141, 166, 162, .045) .7px, transparent .7px);
+  background-size: 13px 13px;
+}
+.chat-panel-floating .chat-message {
+  max-width: 88%;
+  padding: 9px 11px;
+  border-color: #263a40;
+  border-radius: 11px 11px 11px 3px;
+  background: #1b2a30;
+  font-size: 13px;
+}
+.chat-panel-floating .chat-message.own {
+  border-color: #126b59;
+  border-radius: 11px 11px 3px;
+  background: #075e54;
+}
+.chat-panel-floating .chat-message-meta { color: #b4c6c6; font-size: 10px; }
+.chat-panel-floating .chat-message p { margin-top: 5px; }
+.chat-panel-floating .chat-empty { color: #b4c6c6; font-size: 13px; }
+.chat-panel-floating .chat-composer {
+  gap: 8px;
+  padding: 11px;
+  border-top-color: #26383c;
+  background: #172329;
+}
+.chat-panel-floating .chat-composer label { color: #cbd9d8; font-size: 11px; }
+.chat-panel-floating .chat-composer textarea {
+  min-height: 58px;
+  max-height: 110px;
+  resize: vertical;
+  border-color: #35484b;
+  border-radius: 9px;
+  background: #0d171c;
+  color: #e7edf4;
+  font-size: 13px;
+}
+.chat-panel-floating .chat-composer-footer span { font-size: 10px; }
+.chat-panel-floating .chat-composer-footer .button { min-height: 36px; border-radius: 18px; }
+.chat-loading { margin: auto; padding: 20px; color: var(--muted); font-size: 13px; text-align: center; }
 .staff-chat-inbox {
   display: grid;
   min-height: 520px;
@@ -376,6 +502,10 @@ body { color: var(--ink); background: var(--paper); }
   .chat-messages { max-height: 48vh; padding: 14px; }
   .chat-message { max-width: 92%; }
   .chat-composer { padding: 13px; }
+  .student-chat-widget { right: 12px; bottom: 78px; width: min(370px, calc(100vw - 24px)); }
+  .floating-chat-window { height: min(620px, calc(100dvh - 100px)); min-height: 300px; }
+  .chat-panel-floating { min-height: 0; }
+  .floating-chat-launcher { min-height: 48px; }
 }
 .empty-state { background: #fff; }
 .auth-dialog { border-radius: 5px; }

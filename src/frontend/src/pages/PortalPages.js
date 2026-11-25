@@ -742,7 +742,7 @@ function StudentDashboard({ user, profile, profileError, onCancelRequest, onUpda
   );
 }
 
-export function ChatPage({ user }) {
+export function ChatPage({ user, floating = false }) {
   const [roomId, setRoomId] = useState('');
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
@@ -789,16 +789,10 @@ export function ChatPage({ user }) {
     }
   };
 
-  return (
-    <section className="content-wrap dashboard-wrap chat-page">
-      <PageHeading
-        eyebrow="STUDENT SUPPORT"
-        title="Live chat with the university"
-        description="Send a message to the university team. Replies appear here in real time, and you’ll receive a notification when staff respond."
-      />
-      {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
-      {loading ? <p role="status">Opening your secure chat…</p> : (
-        <div className="chat-panel">
+  const chatPanel = (
+    <div className={`chat-panel${floating ? ' chat-panel-floating' : ''}`}>
+      {loading ? <p className="chat-loading" role="status">Opening your secure chat…</p> : (
+        <>
           <div className="chat-messages" aria-live="polite" aria-label="Chat messages">
             {messages.length ? messages.map((item) => (
               <article
@@ -831,9 +825,73 @@ export function ChatPage({ user }) {
               </button>
             </div>
           </form>
-        </div>
+        </>
       )}
+    </div>
+  );
+
+  if (floating) {
+    return (
+      <div className="floating-chat-body">
+        {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
+        {chatPanel}
+      </div>
+    );
+  }
+
+  return (
+    <section className="content-wrap dashboard-wrap chat-page">
+      <PageHeading
+        eyebrow="STUDENT SUPPORT"
+        title="Live chat with the university"
+        description="Send a message to the university team. Replies appear here in real time, and you’ll receive a notification when staff respond."
+      />
+      {error && <p className="form-alert form-alert-error" role="alert">{error}</p>}
+      {chatPanel}
     </section>
+  );
+}
+
+export function FloatingChatWidget({ user, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
+
+  useEffect(() => {
+    if (initialOpen) setOpen(true);
+  }, [initialOpen]);
+
+  return (
+    <div className="student-chat-widget">
+      {open ? (
+        <section className="floating-chat-window" aria-label="Live chat with the university">
+          <header className="floating-chat-header">
+            <span className="floating-chat-avatar"><Icon name="university" size={19} /></span>
+            <span className="floating-chat-title">
+              <strong>University support</strong>
+              <small>General enquiry</small>
+            </span>
+            <button
+              className="floating-chat-minimize"
+              type="button"
+              aria-label="Minimize live chat"
+              onClick={() => setOpen(false)}
+            >
+              <span aria-hidden="true">−</span>
+            </button>
+          </header>
+          <ChatPage user={user} floating />
+        </section>
+      ) : (
+        <button
+          className="floating-chat-launcher"
+          type="button"
+          aria-label="Open live chat"
+          onClick={() => setOpen(true)}
+        >
+          <Icon name="message" size={21} />
+          <span>Chat with us</span>
+        </button>
+      )}
+    </div>
   );
 }
 

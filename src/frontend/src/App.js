@@ -14,7 +14,6 @@ import useConfirmation, { ConfirmationProvider } from './components/Confirmation
 import SiteLayout from './components/SiteLayout';
 import {
   AdminDashboard,
-  ChatPage,
   NotificationsPage,
   RequestPage,
   ServiceDetailsPage,
@@ -209,7 +208,7 @@ function PortalApp() {
           ? <div className="content-wrap" role="status">Checking student access…</div>
           : isAdmin
             ? <Navigate to="/staff?view=chat" replace />
-            : <ChatPage user={user} />} />
+            : <Navigate to="/student" replace />} />
         <Route path="request/:serviceId" element={<RequestRoute services={services} user={user} profile={profile} navigate={navigate} />} />
         <Route path="student" element={user ? (
           <StudentDashboard
