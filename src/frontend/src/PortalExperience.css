@@ -2416,6 +2416,11 @@ body,
   background: rgba(255, 255, 255, .97);
   border-color: var(--line);
 }
+:root[data-theme='light'] .portal-brand {
+  background: #fff;
+  border-bottom-color: #d6dfeb;
+}
+:root[data-theme='light'] .portal-brand-logo { filter: brightness(0); }
 
 :root[data-theme='light'] .portal-nav-label { color: #64748b; }
 :root[data-theme='light'] .portal-nav-link,
